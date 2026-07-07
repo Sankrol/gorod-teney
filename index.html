@@ -399,7 +399,7 @@
 <div class="game-container" id="app">
     <div class="test-notice">
         <i class="fas fa-wifi"></i> 
-        <span id="syncStatus">Загрузка Ably...</span>
+        <span id="syncStatus">Загрузка...</span>
     </div>
 
     <div class="header">
@@ -475,21 +475,11 @@
 
 <script>
     (function() {
-        console.log('🚀 Запуск игры "Город Теней"');
-        
-        // ============================================
-        // ⚡ ABLY КЛЮЧ
-        // ============================================
-        const ABLY_KEY = '5WEVUw.Hu41oA:LkbFLRC4TTLJSxF1ZL1xsOSGHBeyR8ar-L4Ml7u1rTE';
+        console.log('🚀 Запуск игры "Город Теней" (Node.js версия)');
         
         // ============================================
         // ПЕРЕМЕННЫЕ
         // ============================================
-        let ably = null;
-        let channel = null;
-        let isSyncing = false;
-        let ablyLoaded = false;
-        
         let myPlayerId = localStorage.getItem('darkfantasy_player_id_v3') || null;
         let gameState = { players: [], stage: 0, gameOver: false, stageLocked: false, choices: {}, ready: {} };
         let currentStage = 0;
@@ -501,8 +491,9 @@
         let playerReady = {};
         let videoTimer = null;
         let isInitialized = false;
+        let isSyncing = false;
         
-        // DOM
+        // DOM элементы
         const nicknamePhase = document.getElementById('nicknamePhase');
         const gamePhase = document.getElementById('gamePhase');
         const nickInput = document.getElementById('nickInput');
@@ -527,42 +518,116 @@
         const hoodedFigure = document.getElementById('hoodedFigure');
         
         // ============================================
-        // ⚡ ЗАГРУЗКА ABLY — локальный файл
+        // API ВЫЗОВЫ К SERVERLESS ФУНКЦИИ
         // ============================================
-        function loadAblyScript() {
-            return new Promise(function(resolve, reject) {
-                if (typeof Ably !== 'undefined') {
-                    console.log('✅ Ably уже загружен');
-                    ablyLoaded = true;
-                    resolve(Ably);
+        const API_URL = '/.netlify/functions/ably-sync';
+        
+        function publishState(state) {
+            if (isSyncing) return;
+            
+            fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: state })
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('📤 Состояние отправлено');
+                syncStatus.innerHTML = '<i class="fas fa-wifi"></i> ✅ Синхронизация активна';
+                syncStatus.className = 'sync-status';
+            })
+            .catch(err => {
+                console.error('❌ Ошибка отправки:', err);
+                syncStatus.innerHTML = '<i class="fas fa-wifi"></i> ⚠️ Ошибка синхронизации';
+                syncStatus.className = 'sync-status error';
+            });
+        }
+        
+        function fetchState() {
+            fetch(API_URL)
+            .then(response => response.json())
+            .then(data => {
+                if (data.state) {
+                    console.log('📩 Получено состояние');
+                    applyState(data.state);
+                }
+            })
+            .catch(err => {
+                console.error('❌ Ошибка получения состояния:', err);
+            });
+        }
+        
+        // ============================================
+        // ПРИМЕНЕНИЕ СОСТОЯНИЯ
+        // ============================================
+        function applyState(newState) {
+            if (isSyncing) return;
+            isSyncing = true;
+            
+            try {
+                if (!newState.players || newState.players.length === 0) {
+                    isSyncing = false;
                     return;
                 }
                 
-                // Пробуем локальный файл
-                console.log('🔄 Загрузка Ably из локального файла: ably.min.js');
+                // Сохраняем текущего игрока
+                const me = gameState.players.find(p => p.id === myPlayerId);
                 
-                var script = document.createElement('script');
-                script.src = 'ably.min.js';
-                script.async = true;
+                gameState.players = newState.players || [];
+                currentStage = newState.stage || 0;
+                gameOver = newState.gameOver || false;
+                stageLocked = newState.stageLocked || false;
+                gameState.choices = newState.choices || {};
+                playerReady = newState.ready || {};
+                roundResults = newState.results || [];
                 
-                script.onload = function() {
-                    if (typeof Ably !== 'undefined') {
-                        ablyLoaded = true;
-                        console.log('✅ Ably загружен из локального файла');
-                        resolve(Ably);
-                    } else {
-                        console.warn('⚠️ Локальный файл загружен, но Ably не определен');
-                        reject(new Error('Локальный файл не содержит Ably'));
-                    }
-                };
+                // Проверяем, существует ли игрок
+                if (myPlayerId && !gameState.players.some(p => p.id === myPlayerId)) {
+                    myPlayerId = null;
+                    localStorage.removeItem('darkfantasy_player_id_v3');
+                    console.log('⚠️ Игрок не найден в общем состоянии');
+                }
                 
-                script.onerror = function() {
-                    console.warn('❌ Не удалось загрузить локальный файл');
-                    reject(new Error('Не найден локальный файл ably.min.js'));
-                };
+                renderAll();
+                updateUIState();
+                updateStageUI();
                 
-                document.head.appendChild(script);
-            });
+                console.log('✅ Состояние обновлено, игроков:', gameState.players.length);
+            } catch(e) {
+                console.warn('⚠️ Ошибка применения состояния:', e);
+            }
+            
+            isSyncing = false;
+        }
+        
+        // ============================================
+        // СОХРАНЕНИЕ СОСТОЯНИЯ
+        // ============================================
+        function saveState() {
+            // Сохраняем локально
+            try {
+                localStorage.setItem('darkfantasy_game_state_backup', JSON.stringify({
+                    players: gameState.players,
+                    stage: currentStage,
+                    gameOver: gameOver,
+                    stageLocked: stageLocked,
+                    choices: gameState.choices,
+                    ready: playerReady,
+                    results: roundResults
+                }));
+            } catch(e) {}
+            
+            // Отправляем на сервер
+            const state = {
+                players: gameState.players,
+                stage: currentStage,
+                gameOver: gameOver,
+                stageLocked: stageLocked,
+                choices: gameState.choices || {},
+                ready: playerReady || {},
+                results: roundResults || []
+            };
+            publishState(state);
         }
         
         // ============================================
@@ -778,84 +843,6 @@
             var me = gameState.players.find(function(p) { return p.id === myPlayerId; });
             if (me) goldSpan.textContent = me.gold;
             else if (gameState.players.length) goldSpan.textContent = gameState.players[0].gold;
-        }
-        
-        // ============================================
-        // СИНХРОНИЗАЦИЯ
-        // ============================================
-        function syncToAbly() {
-            if (isSyncing) return;
-            if (!channel) return;
-            if (!ablyLoaded) return;
-            
-            var state = {
-                players: gameState.players,
-                stage: currentStage,
-                gameOver: gameOver,
-                stageLocked: stageLocked,
-                choices: gameState.choices || {},
-                ready: playerReady || {},
-                results: roundResults || []
-            };
-            
-            try {
-                channel.publish('state-update', state);
-                console.log('📤 Отправлено обновление');
-            } catch(e) {
-                console.warn('⚠️ Ошибка отправки:', e);
-            }
-        }
-        
-        function saveState() {
-            try {
-                localStorage.setItem('darkfantasy_game_state_backup', JSON.stringify({
-                    players: gameState.players,
-                    stage: currentStage,
-                    gameOver: gameOver,
-                    stageLocked: stageLocked,
-                    choices: gameState.choices,
-                    ready: playerReady,
-                    results: roundResults
-                }));
-            } catch(e) {}
-            syncToAbly();
-        }
-        
-        function applyStateFromAbly(newState) {
-            if (isSyncing) return;
-            isSyncing = true;
-            
-            try {
-                if (!newState.players || newState.players.length === 0) {
-                    console.log('⚠️ Получено пустое состояние, игнорируем');
-                    isSyncing = false;
-                    return;
-                }
-                
-                gameState.players = newState.players || [];
-                currentStage = newState.stage || 0;
-                gameOver = newState.gameOver || false;
-                stageLocked = newState.stageLocked || false;
-                gameState.choices = newState.choices || {};
-                playerReady = newState.ready || {};
-                roundResults = newState.results || [];
-                
-                if (myPlayerId && !gameState.players.some(function(p) { return p.id === myPlayerId; })) {
-                    myPlayerId = null;
-                    localStorage.removeItem('darkfantasy_player_id_v3');
-                    console.log('⚠️ Игрок не найден в общем состоянии');
-                }
-                
-                renderAll();
-                updateUIState();
-                updateStageUI();
-                
-                console.log('✅ Состояние обновлено, игроков:', gameState.players.length);
-            } catch(e) {
-                console.warn('⚠️ Ошибка применения состояния:', e);
-            }
-            
-            isSyncing = false;
         }
         
         // ============================================
@@ -1087,12 +1074,6 @@
         // СБРОС
         // ============================================
         function resetGame() {
-            try {
-                if (channel) {
-                    channel.publish('reset-game', {});
-                }
-            } catch(e) {}
-            
             gameState.players = [];
             gameState.choices = {};
             playerReady = {};
@@ -1144,115 +1125,22 @@
         }
         
         // ============================================
-        // ПОДКЛЮЧЕНИЕ К ABLY
+        // ИНИЦИАЛИЗАЦИЯ
         // ============================================
-        function connectAbly() {
-            if (!ablyLoaded) {
-                console.warn('⚠️ Ably не загружен, пропускаем подключение');
-                return;
-            }
+        function init() {
+            console.log('🎮 Инициализация игры (Node.js версия)');
+            syncStatus.innerHTML = '<i class="fas fa-wifi"></i> Подключение к серверу...';
+            syncStatus.className = 'sync-status loading';
             
-            try {
-                if (!ably) {
-                    // Синтаксис для версии 1.2.9
-                    ably = new Ably.Realtime(ABLY_KEY);
-                }
-                
-                ably.connection.on('connected', function() {
-                    console.log('✅ Ably подключен');
-                    syncStatus.innerHTML = '<i class="fas fa-wifi"></i> ✅ Синхронизация активна';
-                    syncStatus.className = 'sync-status';
-                    
-                    channel = ably.channels.get('gorod-teney');
-                    
-                    channel.subscribe('state-update', function(message) {
-                        if (isSyncing) return;
-                        console.log('📩 Получено обновление');
-                        applyStateFromAbly(message.data);
-                    });
-                    
-                    channel.subscribe('request-state', function(message) {
-                        console.log('📩 Получен запрос состояния');
-                        
-                        if (gameState.players.length > 0) {
-                            var state = {
-                                players: gameState.players,
-                                stage: currentStage,
-                                gameOver: gameOver,
-                                stageLocked: stageLocked,
-                                choices: gameState.choices || {},
-                                ready: playerReady || {},
-                                results: roundResults || []
-                            };
-                            
-                            channel.publish('state-response', {
-                                targetId: message.data.playerId,
-                                state: state
-                            });
-                            console.log('📤 Отправлен ответ на запрос состояния');
-                        }
-                    });
-                    
-                    channel.subscribe('state-response', function(message) {
-                        var data = message.data;
-                        
-                        if (data.targetId === myPlayerId) {
-                            console.log('📩 Получен ответ на запрос состояния');
-                            applyStateFromAbly(data.state);
-                        }
-                    });
-                    
-                    if (myPlayerId) {
-                        console.log('📤 Запрос текущего состояния...');
-                        channel.publish('request-state', { playerId: myPlayerId });
-                    }
-                    
-                    setTimeout(function() {
-                        if (myPlayerId && gameState.players.length > 0) {
-                            var state = {
-                                players: gameState.players,
-                                stage: currentStage,
-                                gameOver: gameOver,
-                                stageLocked: stageLocked,
-                                choices: gameState.choices || {},
-                                ready: playerReady || {},
-                                results: roundResults || []
-                            };
-                            channel.publish('state-update', state);
-                            console.log('📤 Отправлено начальное состояние');
-                        }
-                    }, 2000);
-                    
-                    if (!isInitialized) {
-                        initGame();
-                    }
-                });
-                
-                ably.connection.on('disconnected', function() {
-                    console.warn('⚠️ Потеря соединения с Ably');
-                    syncStatus.innerHTML = '<i class="fas fa-wifi"></i> ⚠️ Потеря соединения...';
-                    syncStatus.className = 'sync-status error';
-                });
-                
-                ably.connection.on('failed', function(err) {
-                    console.error('❌ Ошибка соединения Ably:', err);
-                    syncStatus.innerHTML = '<i class="fas fa-wifi"></i> ❌ Ошибка соединения';
-                    syncStatus.className = 'sync-status error';
-                });
-                
-            } catch(e) {
-                console.error('❌ Ошибка подключения Ably:', e);
-                syncStatus.innerHTML = '<i class="fas fa-wifi"></i> ❌ Ошибка: ' + e.message;
-                syncStatus.className = 'sync-status error';
-                if (!isInitialized) {
-                    initGame();
-                }
-            }
+            // Загружаем состояние с сервера
+            fetchState();
+            
+            // Периодическая синхронизация (каждые 3 секунды)
+            setInterval(fetchState, 3000);
+            
+            initGame();
         }
         
-        // ============================================
-        // ИНИЦИАЛИЗАЦИЯ ИГРЫ
-        // ============================================
         function initGame() {
             if (isInitialized) return;
             isInitialized = true;
@@ -1294,23 +1182,6 @@
         }
         
         // ============================================
-        // ЗАПУСК
-        // ============================================
-        
-        loadAblyScript().then(function() {
-            console.log('✅ Ably готов к использованию!');
-            syncStatus.innerHTML = '<i class="fas fa-wifi"></i> Подключение к Ably...';
-            syncStatus.className = 'sync-status loading';
-            connectAbly();
-            
-        }).catch(function(err) {
-            console.error('❌ Не удалось загрузить Ably:', err);
-            syncStatus.innerHTML = '<i class="fas fa-wifi"></i> ⚠️ Игра работает без синхронизации';
-            syncStatus.className = 'sync-status error';
-            initGame();
-        });
-        
-        // ============================================
         // СОБЫТИЯ
         // ============================================
         joinBtn.addEventListener('click', joinGame);
@@ -1320,7 +1191,10 @@
         resetBtn.addEventListener('click', resetGame);
         volumeSlider.addEventListener('input', function() {});
         
-        console.log('🚀 Игра "Город Теней" загружена');
+        // ЗАПУСК
+        init();
+        
+        console.log('🚀 Игра "Город Теней" загружена (Node.js версия)');
         
     })();
 </script>

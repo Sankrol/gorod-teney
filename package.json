@@ -1,0 +1,8 @@
+{
+  "name": "gorod-teney-server",
+  "version": "1.0.0",
+  "description": "Serverless functions for Ably sync",
+  "dependencies": {
+    "ably": "^2.6.1"
+  }
+}
