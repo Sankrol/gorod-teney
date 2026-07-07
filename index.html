@@ -527,7 +527,7 @@
         const hoodedFigure = document.getElementById('hoodedFigure');
         
         // ============================================
-        // ЗАГРУЗКА ABLY (ВЕРСИЯ 2.x)
+        // ЗАГРУЗКА ABLY (ВЕРСИЯ 2.x - ИСПРАВЛЕННЫЙ CDN)
         // ============================================
         function loadAblyScript() {
             return new Promise(function(resolve, reject) {
@@ -538,11 +538,11 @@
                     return;
                 }
                 
-                // ✅ Используем версию 2.x (поддерживает протокол v2)
+                // ✅ ИСПРАВЛЕННЫЕ ССЫЛКИ НА ВЕРСИЮ 2.x
                 var sources = [
-                    'https://cdnjs.cloudflare.com/ajax/libs/ably/2.6.1/ably.min.js',
-                    'https://cdn.ably.com/lib/ably-2.6.1.min.js',
-                    'https://cdnjs.cloudflare.com/ajax/libs/ably/2.0.2/ably.min.js'
+                    'https://cdn.jsdelivr.net/npm/ably@2.6.1/dist/ably.min.js',
+                    'https://unpkg.com/ably@2.6.1/dist/ably.min.js',
+                    'https://cdn.ably.com/lib/ably-2.0.1.min.js'
                 ];
                 
                 var index = 0;
