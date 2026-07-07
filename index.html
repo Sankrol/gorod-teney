@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        /* ... все стили такие же ... */
         * {
             margin: 0;
             padding: 0;
@@ -528,7 +527,7 @@
         const hoodedFigure = document.getElementById('hoodedFigure');
         
         // ============================================
-        // ЗАГРУЗКА ABLY
+        // ЗАГРУЗКА ABLY (ВЕРСИЯ 2.x)
         // ============================================
         function loadAblyScript() {
             return new Promise(function(resolve, reject) {
@@ -539,11 +538,11 @@
                     return;
                 }
                 
-                // Используем Cloudflare как основной источник
+                // ✅ Используем версию 2.x (поддерживает протокол v2)
                 var sources = [
-                    'https://cdnjs.cloudflare.com/ajax/libs/ably/1.2.20/ably.min.js',
-                    'https://cdn.ably.com/lib/ably.min-1.js',
-                    'https://cdn.ably.com/lib/ably-1.2.20.min.js'
+                    'https://cdnjs.cloudflare.com/ajax/libs/ably/2.6.1/ably.min.js',
+                    'https://cdn.ably.com/lib/ably-2.6.1.min.js',
+                    'https://cdnjs.cloudflare.com/ajax/libs/ably/2.0.2/ably.min.js'
                 ];
                 
                 var index = 0;
@@ -850,14 +849,12 @@
             isSyncing = true;
             
             try {
-                // Проверяем, есть ли в новом состоянии игроки
                 if (!newState.players || newState.players.length === 0) {
                     console.log('⚠️ Получено пустое состояние, игнорируем');
                     isSyncing = false;
                     return;
                 }
                 
-                // Обновляем состояние
                 gameState.players = newState.players || [];
                 currentStage = newState.stage || 0;
                 gameOver = newState.gameOver || false;
@@ -866,11 +863,9 @@
                 playerReady = newState.ready || {};
                 roundResults = newState.results || [];
                 
-                // Проверяем, существует ли игрок
                 if (myPlayerId && !gameState.players.some(function(p) { return p.id === myPlayerId; })) {
                     myPlayerId = null;
                     localStorage.removeItem('darkfantasy_player_id_v3');
-                    // Не перезагружаем, а просто обновляем UI
                     console.log('⚠️ Игрок не найден в общем состоянии');
                 }
                 
@@ -1172,7 +1167,7 @@
         }
         
         // ============================================
-        // ПОДКЛЮЧЕНИЕ К ABLY (ИСПРАВЛЕННОЕ)
+        // ПОДКЛЮЧЕНИЕ К ABLY (ВЕРСИЯ 2.x)
         // ============================================
         function connectAbly() {
             if (!ablyLoaded) {
@@ -1182,7 +1177,8 @@
             
             try {
                 if (!ably) {
-                    ably = new Ably.Realtime(ABLY_KEY);
+                    // ✅ НОВЫЙ СИНТАКСИС ДЛЯ V2
+                    ably = new Ably.Realtime({ key: ABLY_KEY });
                 }
                 
                 ably.connection.on('connected', function() {
@@ -1192,14 +1188,14 @@
                     
                     channel = ably.channels.get('gorod-teney');
                     
-                    // ⭐ Подписка на обновления
+                    // Подписка на обновления
                     channel.subscribe('state-update', function(message) {
                         if (isSyncing) return;
                         console.log('📩 Получено обновление');
                         applyStateFromAbly(message.data);
                     });
                     
-                    // ⭐ Обработка запроса состояния
+                    // Обработка запроса состояния
                     channel.subscribe('request-state', function(message) {
                         console.log('📩 Получен запрос состояния');
                         
@@ -1222,7 +1218,7 @@
                         }
                     });
                     
-                    // ⭐ Обработка ответа на запрос
+                    // Обработка ответа на запрос
                     channel.subscribe('state-response', function(message) {
                         var data = message.data;
                         
@@ -1232,13 +1228,13 @@
                         }
                     });
                     
-                    // ⭐ Запрашиваем состояние при подключении
+                    // Запрашиваем состояние при подключении
                     if (myPlayerId) {
                         console.log('📤 Запрос текущего состояния...');
                         channel.publish('request-state', { playerId: myPlayerId });
                     }
                     
-                    // ⭐ Через 2 секунды отправляем свое состояние
+                    // Через 2 секунды отправляем свое состояние
                     setTimeout(function() {
                         if (myPlayerId && gameState.players.length > 0) {
                             var state = {
