@@ -3,26 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Город Теней · Синхронизация через Ably</title>
+    <title>Город Теней · Синхронизация</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <script src="https://unpkg.com/ably@1.2.2/dist/ably.min.js"></script>
-	<!-- ✅ ПРОВЕРКА ЗАГРУЗКИ -->
-    <script>
-        console.log('🔍 Проверка Ably...');
-        if (typeof Ably !== 'undefined') {
-            console.log('✅ Ably загружен, версия:', Ably.version);
-        } else {
-            console.error('❌ Ably НЕ загружен! Проверьте интернет.');
-            // Показываем сообщение пользователю
-            document.addEventListener('DOMContentLoaded', function() {
-                const status = document.getElementById('syncStatus');
-                if (status) {
-                    status.innerHTML = '❌ Ошибка: не удалось загрузить Ably. Проверьте интернет.';
-                    status.className = 'sync-status error';
-                }
-            });
-        }
-    </script>
+    
     <style>
         * {
             margin: 0;
@@ -103,7 +86,6 @@
             cursor: pointer;
             box-shadow: 0 0 10px #d4a56e;
         }
-
         .players-panel {
             background: #1f1713b8;
             backdrop-filter: blur(2px);
@@ -133,16 +115,6 @@
         .player-badge .gold-badge { color: #f5c542; margin-left: 4px; font-weight: bold; }
         .player-badge.ready { border-color: #b8946a; background: #3f2d22; box-shadow: 0 0 16px #7a5f3f44; }
         .player-badge.me { border-color: #dbbd9a; background: #4f372a; box-shadow: 0 0 20px #b8946a66; }
-        .player-badge .status-dot {
-            display: inline-block;
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            margin-left: 4px;
-        }
-        .player-badge .status-dot.online { background: #4caf50; }
-        .player-badge .status-dot.offline { background: #666; }
-
         .stage-scene {
             background: #19120eb0;
             backdrop-filter: blur(4px);
@@ -168,7 +140,6 @@
             align-items: flex-end;
         }
         .stage-title small { font-size: 0.8rem; letter-spacing: 2px; color: #b39579; }
-
         .flash-content {
             min-height: 180px;
             display: flex;
@@ -248,7 +219,6 @@
             color: #5f4a38;
             letter-spacing: 6px;
         }
-
         .choices-grid {
             display: flex;
             flex-wrap: wrap;
@@ -281,7 +251,6 @@
             pointer-events: none;
         }
         .choice-btn.chosen { border-color: #b8946a; background: #4b3428; box-shadow: 0 0 20px #7a5f3f77; }
-
         .outcome-box {
             background: #1e1612e0;
             border-radius: 40px;
@@ -318,7 +287,6 @@
         }
         .ready-btn:hover { background: #5b4032; }
         .ready-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
         .reset-area {
             display: flex;
             justify-content: center;
@@ -337,7 +305,6 @@
             transition: 0.2s;
         }
         .reset-btn:hover, .nick-btn:hover { background: #5b4032; color: #f5e7d4; }
-
         .nick-overlay {
             background: #0b0807ee;
             backdrop-filter: blur(6px);
@@ -392,7 +359,6 @@
         }
         .nick-tag i { margin-right: 6px; color: #b59373; }
         .hidden { display: none !important; }
-
         .test-notice {
             background: #2f221b;
             border: 1px solid #6f5542;
@@ -404,7 +370,6 @@
             margin-bottom: 12px;
         }
         .test-notice i { color: #b8946a; margin-right: 8px; }
-
         footer {
             text-align: center;
             margin-top: 16px;
@@ -416,13 +381,13 @@
             font-size: 0.7rem;
             color: #4caf50;
             letter-spacing: 1px;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 4px;
         }
         .sync-status i { font-size: 0.6rem; }
         .sync-status.error { color: #f44336; }
-
+        .sync-status.loading { color: #ffa726; }
         @media (max-width: 550px) {
             .header { flex-direction: column; align-items: stretch; }
             .sound-control { justify-content: center; }
@@ -434,7 +399,7 @@
 <div class="game-container" id="app">
     <div class="test-notice">
         <i class="fas fa-wifi"></i> 
-        <span id="syncStatus">Подключение к Ably...</span>
+        <span id="syncStatus">Загрузка Ably...</span>
     </div>
 
     <div class="header">
@@ -510,13 +475,102 @@
 
 <script>
     (function() {
-        // ===== ABLY =====
-        // ⚠️ ВАШ API КЛЮЧ (скопирован из Ably)
-        const ABLY_KEY = '5WEVUw.Hu41oA:LkbFLRC4TTLJSxF1ZL1xsOSGHBeyR8ar-L4Ml7u1rTE';
+        console.log('🚀 Запуск игры "Город Теней"');
+        
+        // ============================================
+        // ⚡ ЗАГРУЗКА ABLY С НЕСКОЛЬКИХ CDN
+        // ============================================
+        
+        function loadAbly() {
+            return new Promise((resolve, reject) => {
+                // Уже загружен?
+                if (typeof Ably !== 'undefined') {
+                    console.log('✅ Ably уже загружен');
+                    resolve(Ably);
+                    return;
+                }
+                
+                // Список источников для загрузки
+                const sources = [
+                    'https://cdn.jsdelivr.net/npm/ably@1.2.2/dist/ably.min.js',
+                    'https://unpkg.com/ably@1.2.2/dist/ably.min.js',
+                    'https://cdn.ably.com/lib/ably-1.2.2.min.js'
+                ];
+                
+                let currentIndex = 0;
+                let loaded = false;
+                
+                function tryLoad() {
+                    if (loaded) return;
+                    if (currentIndex >= sources.length) {
+                        reject(new Error('Не удалось загрузить Ably ни из одного источника'));
+                        return;
+                    }
+                    
+                    const src = sources[currentIndex];
+                    console.log(`🔄 Пробуем загрузить Ably из: ${src}`);
+                    
+                    const script = document.createElement('script');
+                    script.src = src;
+                    script.async = true;
+                    script.crossOrigin = 'anonymous';
+                    
+                    script.onload = function() {
+                        if (typeof Ably !== 'undefined') {
+                            loaded = true;
+                            console.log('✅ Ably загружен из:', src);
+                            resolve(Ably);
+                        } else {
+                            console.warn(`⚠️ Скрипт загружен, но Ably не определен`);
+                            currentIndex++;
+                            tryLoad();
+                        }
+                    };
+                    
+                    script.onerror = function() {
+                        console.warn(`❌ Не удалось загрузить из: ${src}`);
+                        currentIndex++;
+                        tryLoad();
+                    };
+                    
+                    document.head.appendChild(script);
+                }
+                
+                // Таймаут на случай зависания
+                const timeout = setTimeout(() => {
+                    if (!loaded) {
+                        console.warn('⏰ Таймаут загрузки Ably');
+                        currentIndex++;
+                        tryLoad();
+                    }
+                }, 10000);
+                
+                // Переопределяем resolve чтобы очистить таймаут
+                const originalResolve = resolve;
+                resolve = function(value) {
+                    clearTimeout(timeout);
+                    originalResolve(value);
+                };
+                const originalReject = reject;
+                reject = function(value) {
+                    clearTimeout(timeout);
+                    originalReject(value);
+                };
+                
+                tryLoad();
+            });
+        }
+        
+        // ============================================
+        // ПЕРЕМЕННЫЕ
+        // ============================================
         
         let ably = null;
         let channel = null;
         let isSyncing = false;
+        
+        const ABLY_KEY = '5WEVUw.Hu41oA:LkbFLRC4TTLJSxF1ZL1xsOSGHBeyR8ar-L4Ml7u1rTE';
+        
         let myPlayerId = localStorage.getItem('darkfantasy_player_id_v3') || null;
         let gameState = { players: [], stage: 0, gameOver: false, stageLocked: false, choices: {}, ready: {} };
         let currentStage = 0;
@@ -527,7 +581,8 @@
         let roundResults = [];
         let playerReady = {};
         let videoTimer = null;
-
+        let isInitialized = false;
+        
         // DOM
         const nicknamePhase = document.getElementById('nicknamePhase');
         const gamePhase = document.getElementById('gamePhase');
@@ -551,115 +606,11 @@
         const videoPlaceholder = document.getElementById('videoPlaceholder');
         const storyVideo = document.getElementById('storyVideo');
         const hoodedFigure = document.getElementById('hoodedFigure');
-
-        // ===== ПОДКЛЮЧЕНИЕ К ABLY =====
-        function connectAbly() {
-            try {
-                ably = new Ably.Realtime(ABLY_KEY);
-                
-                ably.connection.on('connected', function() {
-                    syncStatus.innerHTML = '<i class="fas fa-wifi"></i> Синхронизация активна';
-                    syncStatus.className = 'sync-status';
-                    console.log('✅ Ably подключен');
-                    
-                    // Подписываемся на канал
-                    channel = ably.channels.get('gorod-teney');
-                    
-                    channel.subscribe('state-update', function(message) {
-                        if (isSyncing) return;
-                        const newState = message.data;
-                        console.log('📩 Получено обновление:', newState);
-                        applyStateFromAbly(newState);
-                    });
-                    
-                    // Запрашиваем текущее состояние
-                    channel.publish('request-state', { playerId: myPlayerId });
-                });
-                
-                ably.connection.on('disconnected', function() {
-                    syncStatus.innerHTML = '<i class="fas fa-wifi"></i> Потеря соединения...';
-                    syncStatus.className = 'sync-status error';
-                });
-                
-                ably.connection.on('failed', function() {
-                    syncStatus.innerHTML = '<i class="fas fa-wifi"></i> Ошибка подключения';
-                    syncStatus.className = 'sync-status error';
-                });
-            } catch(e) {
-                console.error('Ably error:', e);
-                syncStatus.innerHTML = '<i class="fas fa-wifi"></i> Ошибка: ' + e.message;
-                syncStatus.className = 'sync-status error';
-            }
-        }
-
-        // ===== ПРИМЕНЕНИЕ СОСТОЯНИЯ ИЗ ABLY =====
-        function applyStateFromAbly(newState) {
-            isSyncing = true;
-            
-            // Сохраняем текущего игрока
-            const me = gameState.players.find(p => p.id === myPlayerId);
-            
-            // Обновляем состояние
-            gameState.players = newState.players || [];
-            currentStage = newState.stage || 0;
-            gameOver = newState.gameOver || false;
-            stageLocked = newState.stageLocked || false;
-            gameState.choices = newState.choices || {};
-            playerReady = newState.ready || {};
-            roundResults = newState.results || [];
-            
-            // Проверяем, существует ли игрок
-            if (myPlayerId && !gameState.players.some(p => p.id === myPlayerId)) {
-                // Игрок был удален — возможно, перезагрузка
-                myPlayerId = null;
-                localStorage.removeItem('darkfantasy_player_id_v3');
-                location.reload();
-                return;
-            }
-            
-            renderAll();
-            updateUIState();
-            updateStageUI();
-            
-            isSyncing = false;
-        }
-
-        // ===== ОТПРАВКА СОСТОЯНИЯ В ABLY =====
-        function syncToAbly() {
-            if (isSyncing) return;
-            if (!channel) return;
-            
-            const state = {
-                players: gameState.players,
-                stage: currentStage,
-                gameOver: gameOver,
-                stageLocked: stageLocked,
-                choices: gameState.choices || {},
-                ready: playerReady || {},
-                results: roundResults || []
-            };
-            
-            channel.publish('state-update', state);
-            console.log('📤 Отправлено обновление');
-        }
-
-        // ===== ПЕРЕОПРЕДЕЛЯЕМ saveState =====
-        function saveState() {
-            // Сохраняем локально
-            localStorage.setItem('darkfantasy_game_state_backup', JSON.stringify({
-                players: gameState.players,
-                stage: currentStage,
-                gameOver: gameOver,
-                stageLocked: stageLocked,
-                choices: gameState.choices,
-                ready: playerReady,
-                results: roundResults
-            }));
-            // Отправляем в Ably
-            syncToAbly();
-        }
-
-        // ===== ЗВУК =====
+        
+        // ============================================
+        // ЗВУК
+        // ============================================
+        
         let audioCtx = null;
         function playSound(type = 'click') {
             try {
@@ -678,8 +629,11 @@
                 osc.stop(audioCtx.currentTime + 0.1);
             } catch(e) {}
         }
-
-        // ===== ВИДЕО =====
+        
+        // ============================================
+        // ВИДЕО
+        // ============================================
+        
         function getVideoPlaceholderText(stageIdx, choiceIdx) {
             const videoMap = {
                 '1-0': 'Таверна: пьяный разговор и тёмные слухи',
@@ -701,7 +655,7 @@
             const key = `${stageIdx}-${choiceIdx}`;
             return videoMap[key] || `🎬 Сцена ${stageIdx}.${choiceIdx}`;
         }
-
+        
         function showVideo(stageIdx, choiceIdx) {
             if (videoTimer) {
                 clearTimeout(videoTimer);
@@ -720,7 +674,7 @@
                 videoTimer = null;
             }, delay);
         }
-
+        
         function showPrologueVideo() {
             if (videoTimer) {
                 clearTimeout(videoTimer);
@@ -738,7 +692,7 @@
                 videoTimer = null;
             }, delay);
         }
-
+        
         function showEpilogueVideo() {
             if (videoTimer) {
                 clearTimeout(videoTimer);
@@ -756,7 +710,7 @@
                 videoTimer = null;
             }, delay);
         }
-
+        
         function resetVideo() {
             if (videoTimer) {
                 clearTimeout(videoTimer);
@@ -766,8 +720,11 @@
             storyVideo.style.display = 'none';
             hoodedFigure.style.display = 'none';
         }
-
-        // ===== ДАННЫЕ ЭТАПОВ =====
+        
+        // ============================================
+        // ДАННЫЕ ЭТАПОВ
+        // ============================================
+        
         const stagesData = [
             null,
             {
@@ -816,8 +773,11 @@
                 ]
             }
         ];
-
-        // ===== ОТРИСОВКА =====
+        
+        // ============================================
+        // ОТРИСОВКА
+        // ============================================
+        
         function renderPlayers() {
             let html = '';
             gameState.players.forEach((p) => {
@@ -836,7 +796,7 @@
             if (me) goldSpan.textContent = me.gold;
             else if (gameState.players.length) goldSpan.textContent = gameState.players[0].gold;
         }
-
+        
         function renderNickListUI() {
             const list = gameState.players;
             if (list.length === 0) {
@@ -852,37 +812,118 @@
                 startGameBtn.textContent = `🚀 Начать игру (${list.length} игроков)`;
             }
         }
-
+        
         function renderAll() {
             renderPlayers();
             renderNickListUI();
             updateGoldDisplay();
         }
-
+        
         function updateGoldDisplay() {
             const me = gameState.players.find(p => p.id === myPlayerId);
             if (me) goldSpan.textContent = me.gold;
             else if (gameState.players.length) goldSpan.textContent = gameState.players[0].gold;
         }
-
-        // ===== UI СОСТОЯНИЕ =====
+        
+        // ============================================
+        // СИНХРОНИЗАЦИЯ
+        // ============================================
+        
+        function syncToAbly() {
+            if (isSyncing) return;
+            if (!channel) return;
+            
+            const state = {
+                players: gameState.players,
+                stage: currentStage,
+                gameOver: gameOver,
+                stageLocked: stageLocked,
+                choices: gameState.choices || {},
+                ready: playerReady || {},
+                results: roundResults || []
+            };
+            
+            try {
+                channel.publish('state-update', state);
+                console.log('📤 Отправлено обновление');
+            } catch(e) {
+                console.warn('⚠️ Ошибка отправки:', e);
+            }
+        }
+        
+        function saveState() {
+            // Сохраняем локально
+            try {
+                localStorage.setItem('darkfantasy_game_state_backup', JSON.stringify({
+                    players: gameState.players,
+                    stage: currentStage,
+                    gameOver: gameOver,
+                    stageLocked: stageLocked,
+                    choices: gameState.choices,
+                    ready: playerReady,
+                    results: roundResults
+                }));
+            } catch(e) {}
+            // Отправляем в Ably
+            syncToAbly();
+        }
+        
+        function applyStateFromAbly(newState) {
+            if (isSyncing) return;
+            isSyncing = true;
+            
+            try {
+                // Сохраняем текущего игрока
+                const me = gameState.players.find(p => p.id === myPlayerId);
+                
+                // Обновляем состояние
+                gameState.players = newState.players || [];
+                currentStage = newState.stage || 0;
+                gameOver = newState.gameOver || false;
+                stageLocked = newState.stageLocked || false;
+                gameState.choices = newState.choices || {};
+                playerReady = newState.ready || {};
+                roundResults = newState.results || [];
+                
+                // Проверяем, существует ли игрок
+                if (myPlayerId && !gameState.players.some(p => p.id === myPlayerId)) {
+                    myPlayerId = null;
+                    localStorage.removeItem('darkfantasy_player_id_v3');
+                    location.reload();
+                    return;
+                }
+                
+                renderAll();
+                updateUIState();
+                updateStageUI();
+            } catch(e) {
+                console.warn('⚠️ Ошибка применения состояния:', e);
+            }
+            
+            isSyncing = false;
+        }
+        
+        // ============================================
+        // UI СОСТОЯНИЕ
+        // ============================================
+        
         function updateUIState() {
             const me = gameState.players.find(p => p.id === myPlayerId);
             if (!me) return;
-
+            
             if (gameOver) {
                 readyBtn.style.display = 'none';
                 return;
             }
-
+            
             if (currentStage === 0) {
                 readyBtn.style.display = 'none';
                 return;
             }
-
+            
             const hasChosen = gameState.choices && gameState.choices[myPlayerId] !== undefined;
             const allChose = gameState.players.every(p => gameState.choices[p.id] !== undefined);
-
+            
             if (allChose && stageLocked) {
                 if (!playerReady[myPlayerId]) {
                     readyBtn.style.display = 'inline-block';
@@ -897,8 +938,11 @@
                 readyBtn.style.display = 'none';
             }
         }
-
-        // ===== ОБНОВЛЕНИЕ ЭТАПА =====
+        
+        // ============================================
+        // ОБНОВЛЕНИЕ ЭТАПА
+        // ============================================
+        
         function updateStageUI() {
             if (currentStage === 0) {
                 showPrologue();
@@ -945,8 +989,11 @@
             
             renderAll();
         }
-
-        // ===== ПРОЛОГ =====
+        
+        // ============================================
+        // ПРОЛОГ
+        // ============================================
+        
         function showPrologue() {
             currentStage = 0;
             waitingForChoice = false;
@@ -959,30 +1006,39 @@
             storyText.textContent = 'Тени сгущаются над старым городком. Каждый житель имеет 3 дублона. Пройдите 5 испытаний вместе.';
             choicesContainer.innerHTML = `<button class="choice-btn" id="startStageBtn"><i class="fas fa-play"></i> Начать странствие</button>`;
             outcomeDisplay.style.display = 'none';
-            document.getElementById('startStageBtn')?.addEventListener('click', () => {
-                if (gameState.players.length < 2) return;
-                playSound('click');
-                gameState.players.forEach(p => p.gold = 3);
-                gameState.choices = {};
-                playerReady = {};
-                currentStage = 1;
-                stageLocked = false;
-                waitingForChoice = true;
-                saveState();
-                updateStageUI();
-            });
+            
+            const startBtn = document.getElementById('startStageBtn');
+            if (startBtn) {
+                startBtn.addEventListener('click', function handler() {
+                    if (gameState.players.length < 2) return;
+                    playSound('click');
+                    gameState.players.forEach(p => p.gold = 3);
+                    gameState.choices = {};
+                    playerReady = {};
+                    currentStage = 1;
+                    stageLocked = false;
+                    waitingForChoice = true;
+                    saveState();
+                    updateStageUI();
+                    this.removeEventListener('click', handler);
+                });
+            }
+            
             waitingText.textContent = 'Нажмите "Начать странствие"';
             readyBtn.style.display = 'none';
             renderAll();
         }
-
-        // ===== ЗАПУСК ЭТАПА =====
+        
+        // ============================================
+        // ЗАПУСК ЭТАПА
+        // ============================================
+        
         function startStage(stageIndex) {
             if (gameOver) return;
             if (stageIndex < 1 || stageIndex > totalStages) return;
             const stageData = stagesData[stageIndex];
             if (!stageData) return;
-
+            
             currentStage = stageIndex;
             stageLocked = false;
             gameState.choices = {};
@@ -993,13 +1049,16 @@
             updateStageUI();
             playSound('stage');
         }
-
-        // ===== ОБРАБОТКА ВЫБОРА =====
+        
+        // ============================================
+        // ОБРАБОТКА ВЫБОРА
+        // ============================================
+        
         function handleChoice(choiceIndex, stageIndex) {
             if (gameOver || !waitingForChoice || stageLocked) return;
             if (!myPlayerId) return;
             if (gameState.choices[myPlayerId] !== undefined) return;
-
+            
             gameState.choices[myPlayerId] = choiceIndex;
             playSound('click');
             showVideo(stageIndex, choiceIndex);
@@ -1008,19 +1067,22 @@
             renderAll();
             updateStageUI();
         }
-
-        // ===== ГОТОВНОСТЬ =====
+        
+        // ============================================
+        // ГОТОВНОСТЬ
+        // ============================================
+        
         function setReady() {
             if (!myPlayerId) return;
             if (!stageLocked) return;
             if (playerReady[myPlayerId]) return;
-
+            
             playerReady[myPlayerId] = true;
             readyBtn.disabled = true;
             readyBtn.textContent = '⏳ Ожидание остальных...';
             saveState();
             renderAll();
-
+            
             const allReady = gameState.players.every(p => playerReady[p.id] === true);
             if (allReady) {
                 resetVideo();
@@ -1037,8 +1099,11 @@
                 }
             }
         }
-
-        // ===== ПРИМЕНЕНИЕ РЕЗУЛЬТАТОВ =====
+        
+        // ============================================
+        // РЕЗУЛЬТАТЫ
+        // ============================================
+        
         function applyRoundResults(stageIndex) {
             const stageData = stagesData[stageIndex];
             if (!stageData) return;
@@ -1055,7 +1120,7 @@
             showRoundResults();
             saveState();
         }
-
+        
         function showRoundResults() {
             let outcomeHtml = roundResults.map(r => 
                 `<div style="padding:4px 0; border-bottom:1px solid #3f2d22;">${r.name}: ${r.desc} (${r.delta >= 0 ? '+' : ''}${r.delta}) → ${r.gold} дублонов</div>`
@@ -1064,8 +1129,11 @@
             outcomeDisplay.innerHTML = `<i class="fas fa-scroll"></i> Итоги этапа:<br>${outcomeHtml}`;
             renderAll();
         }
-
-        // ===== ЭПИЛОГ =====
+        
+        // ============================================
+        // ЭПИЛОГ
+        // ============================================
+        
         function showEpilogue() {
             stageTitle.innerHTML = `<span>Эпилог</span><small>итог</small>`;
             showEpilogueVideo();
@@ -1084,13 +1152,18 @@
             readyBtn.style.display = 'none';
             renderAll();
         }
-
-        // ===== СБРОС =====
+        
+        // ============================================
+        // СБРОС
+        // ============================================
+        
         function resetGame() {
-            if (channel) {
-                channel.publish('reset-game', {});
-            }
-            // Очищаем локальное состояние
+            try {
+                if (channel) {
+                    channel.publish('reset-game', {});
+                }
+            } catch(e) {}
+            
             gameState.players = [];
             gameState.choices = {};
             playerReady = {};
@@ -1101,11 +1174,15 @@
             waitingForChoice = false;
             myPlayerId = null;
             localStorage.removeItem('darkfantasy_player_id_v3');
+            localStorage.removeItem('darkfantasy_game_state_backup');
             saveState();
             location.reload();
         }
-
-        // ===== ЛОББИ =====
+        
+        // ============================================
+        // ЛОББИ
+        // ============================================
+        
         function joinGame() {
             const name = nickInput.value.trim();
             if (!name) return;
@@ -1122,7 +1199,7 @@
             nickInput.value = '';
             renderAll();
         }
-
+        
         function startGameByAnyone() {
             if (gameState.players.length < 2) return;
             if (!myPlayerId) return;
@@ -1137,10 +1214,69 @@
             showPrologue();
             playSound('stage');
         }
-
-        // ===== ИНИЦИАЛИЗАЦИЯ =====
-        function init() {
-            connectAbly();
+        
+        // ============================================
+        // ПОДКЛЮЧЕНИЕ К ABLY
+        // ============================================
+        
+        function connectAbly() {
+            try {
+                if (!ably) {
+                    ably = new Ably.Realtime(ABLY_KEY);
+                }
+                
+                ably.connection.on('connected', function() {
+                    console.log('✅ Ably подключен');
+                    syncStatus.innerHTML = '<i class="fas fa-wifi"></i> ✅ Синхронизация активна';
+                    syncStatus.className = 'sync-status';
+                    
+                    channel = ably.channels.get('gorod-teney');
+                    
+                    channel.subscribe('state-update', function(message) {
+                        if (isSyncing) return;
+                        console.log('📩 Получено обновление');
+                        applyStateFromAbly(message.data);
+                    });
+                    
+                    // Запрашиваем текущее состояние у других игроков
+                    if (myPlayerId) {
+                        channel.publish('request-state', { playerId: myPlayerId });
+                    }
+                    
+                    // Если игра еще не инициализирована
+                    if (!isInitialized) {
+                        initGame();
+                    }
+                });
+                
+                ably.connection.on('disconnected', function() {
+                    console.warn('⚠️ Потеря соединения с Ably');
+                    syncStatus.innerHTML = '<i class="fas fa-wifi"></i> ⚠️ Потеря соединения...';
+                    syncStatus.className = 'sync-status error';
+                });
+                
+                ably.connection.on('failed', function() {
+                    console.error('❌ Ошибка соединения Ably');
+                    syncStatus.innerHTML = '<i class="fas fa-wifi"></i> ❌ Ошибка соединения';
+                    syncStatus.className = 'sync-status error';
+                });
+                
+            } catch(e) {
+                console.error('❌ Ошибка подключения Ably:', e);
+                syncStatus.innerHTML = '<i class="fas fa-wifi"></i> ❌ Ошибка: ' + e.message;
+                syncStatus.className = 'sync-status error';
+            }
+        }
+        
+        // ============================================
+        // ИНИЦИАЛИЗАЦИЯ ИГРЫ
+        // ============================================
+        
+        function initGame() {
+            if (isInitialized) return;
+            isInitialized = true;
+            
+            console.log('🎮 Инициализация игры');
             
             // Загружаем локальный бэкап
             try {
@@ -1155,17 +1291,19 @@
                         gameState.choices = data.choices || {};
                         playerReady = data.ready || {};
                         roundResults = data.results || [];
+                        console.log('📂 Загружен бэкап состояния');
                     }
                 }
             } catch(e) {}
             
             // Проверяем, есть ли игрок
             if (myPlayerId && gameState.players.some(p => p.id === myPlayerId)) {
-                if (gameState.stage > 0 || gameState.gameOver) {
+                if (currentStage > 0 || gameOver) {
                     nicknamePhase.classList.add('hidden');
                     gamePhase.classList.remove('hidden');
                     renderAll();
                     updateStageUI();
+                    console.log('🎮 Игра продолжается, этап:', currentStage);
                     return;
                 }
             }
@@ -1173,18 +1311,52 @@
             nicknamePhase.classList.remove('hidden');
             gamePhase.classList.add('hidden');
             renderAll();
+            console.log('🎮 Игра в режиме ожидания игроков');
         }
-
-        // ===== СОБЫТИЯ =====
+        
+        // ============================================
+        // ЗАПУСК
+        // ============================================
+        
+        // Загружаем Ably и запускаем игру
+        loadAbly().then(function() {
+            console.log('✅ Ably готов к использованию!');
+            syncStatus.innerHTML = '<i class="fas fa-wifi"></i> Подключение к Ably...';
+            syncStatus.className = 'sync-status loading';
+            
+            // Подключаемся
+            connectAbly();
+            
+        }).catch(function(err) {
+            console.error('❌ Не удалось загрузить Ably:', err);
+            syncStatus.innerHTML = '<i class="fas fa-wifi"></i> ❌ Не удалось загрузить библиотеку. Проверьте интернет.';
+            syncStatus.className = 'sync-status error';
+            
+            // Показываем кнопку для ручной перезагрузки
+            syncStatus.innerHTML += ' <button onclick="location.reload()" style="background:#3a2920;border:1px solid #b8946a;color:#f0e0cc;padding:4px 12px;border-radius:20px;cursor:pointer;font-size:0.7rem;">↻ Перезагрузить</button>';
+            
+            // Запускаем игру без синхронизации (локально)
+            initGame();
+        });
+        
+        // ============================================
+        // СОБЫТИЯ
+        // ============================================
+        
         joinBtn.addEventListener('click', joinGame);
-        nickInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinGame(); });
+        nickInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') joinGame(); });
         startGameBtn.addEventListener('click', startGameByAnyone);
         readyBtn.addEventListener('click', setReady);
         resetBtn.addEventListener('click', resetGame);
-        volumeSlider.addEventListener('input', () => {});
-
-        // Запускаем
-        init();
+        volumeSlider.addEventListener('input', function() {});
+        
+        // Если Ably уже загружен до вызова loadAbly
+        if (typeof Ably !== 'undefined' && !isInitialized) {
+            console.log('✅ Ably уже был загружен');
+            connectAbly();
+        }
+        
+        console.log('🚀 Игра "Город Теней" загружена');
     })();
 </script>
 </body>
