@@ -527,7 +527,7 @@
         const hoodedFigure = document.getElementById('hoodedFigure');
         
         // ============================================
-        // ⚡ ЗАГРУЗКА ABLY — рабочая версия 1.2.9
+        // ⚡ ЗАГРУЗКА ABLY — локальный файл
         // ============================================
         function loadAblyScript() {
             return new Promise(function(resolve, reject) {
@@ -538,52 +538,30 @@
                     return;
                 }
                 
-                var sources = [
-                    'https://cdnjs.cloudflare.com/ajax/libs/ably/1.2.9/ably.min.js',
-                    'https://cdnjs.cloudflare.com/ajax/libs/ably/1.2.8/ably.min.js',
-                    'https://cdn.ably.com/lib/ably-1.2.0.min.js'
-                ];
+                // Пробуем локальный файл
+                console.log('🔄 Загрузка Ably из локального файла: ably.min.js');
                 
-                var index = 0;
-                var loaded = false;
+                var script = document.createElement('script');
+                script.src = 'ably.min.js';
+                script.async = true;
                 
-                function tryNext() {
-                    if (loaded) return;
-                    if (index >= sources.length) {
-                        reject(new Error('Не удалось загрузить Ably ни из одного источника'));
-                        return;
+                script.onload = function() {
+                    if (typeof Ably !== 'undefined') {
+                        ablyLoaded = true;
+                        console.log('✅ Ably загружен из локального файла');
+                        resolve(Ably);
+                    } else {
+                        console.warn('⚠️ Локальный файл загружен, но Ably не определен');
+                        reject(new Error('Локальный файл не содержит Ably'));
                     }
-                    
-                    var src = sources[index];
-                    console.log('🔄 Загрузка Ably из:', src);
-                    
-                    var script = document.createElement('script');
-                    script.src = src;
-                    script.async = true;
-                    
-                    script.onload = function() {
-                        if (typeof Ably !== 'undefined') {
-                            loaded = true;
-                            ablyLoaded = true;
-                            console.log('✅ Ably загружен из:', src);
-                            resolve(Ably);
-                        } else {
-                            console.warn('⚠️ Скрипт загружен, но Ably не определен');
-                            index++;
-                            tryNext();
-                        }
-                    };
-                    
-                    script.onerror = function() {
-                        console.warn('❌ Не удалось загрузить из:', src);
-                        index++;
-                        tryNext();
-                    };
-                    
-                    document.head.appendChild(script);
-                }
+                };
                 
-                tryNext();
+                script.onerror = function() {
+                    console.warn('❌ Не удалось загрузить локальный файл');
+                    reject(new Error('Не найден локальный файл ably.min.js'));
+                };
+                
+                document.head.appendChild(script);
             });
         }
         
@@ -1166,7 +1144,7 @@
         }
         
         // ============================================
-        // ПОДКЛЮЧЕНИЕ К ABLY (исправленное для v1.2.9)
+        // ПОДКЛЮЧЕНИЕ К ABLY
         // ============================================
         function connectAbly() {
             if (!ablyLoaded) {
@@ -1176,7 +1154,7 @@
             
             try {
                 if (!ably) {
-                    // Используем старый синтаксис для версии 1.2.9
+                    // Синтаксис для версии 1.2.9
                     ably = new Ably.Realtime(ABLY_KEY);
                 }
                 
