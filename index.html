@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
+        /* ... все стили такие же ... */
         * {
             margin: 0;
             padding: 0;
@@ -538,8 +539,9 @@
                     return;
                 }
                 
-                // Пробуем разные источники
+                // Используем Cloudflare как основной источник
                 var sources = [
+                    'https://cdnjs.cloudflare.com/ajax/libs/ably/1.2.9/ably.min.js',
                     'https://cdn.ably.com/lib/ably.min-1.js',
                     'https://cdn.ably.com/lib/ably-1.2.0.min.js'
                 ];
@@ -848,6 +850,14 @@
             isSyncing = true;
             
             try {
+                // Проверяем, есть ли в новом состоянии игроки
+                if (!newState.players || newState.players.length === 0) {
+                    console.log('⚠️ Получено пустое состояние, игнорируем');
+                    isSyncing = false;
+                    return;
+                }
+                
+                // Обновляем состояние
                 gameState.players = newState.players || [];
                 currentStage = newState.stage || 0;
                 gameOver = newState.gameOver || false;
@@ -856,16 +866,19 @@
                 playerReady = newState.ready || {};
                 roundResults = newState.results || [];
                 
+                // Проверяем, существует ли игрок
                 if (myPlayerId && !gameState.players.some(function(p) { return p.id === myPlayerId; })) {
                     myPlayerId = null;
                     localStorage.removeItem('darkfantasy_player_id_v3');
-                    location.reload();
-                    return;
+                    // Не перезагружаем, а просто обновляем UI
+                    console.log('⚠️ Игрок не найден в общем состоянии');
                 }
                 
                 renderAll();
                 updateUIState();
                 updateStageUI();
+                
+                console.log('✅ Состояние обновлено, игроков:', gameState.players.length);
             } catch(e) {
                 console.warn('⚠️ Ошибка применения состояния:', e);
             }
@@ -1159,7 +1172,7 @@
         }
         
         // ============================================
-        // ПОДКЛЮЧЕНИЕ К ABLY
+        // ПОДКЛЮЧЕНИЕ К ABLY (ИСПРАВЛЕННОЕ)
         // ============================================
         function connectAbly() {
             if (!ablyLoaded) {
@@ -1179,15 +1192,68 @@
                     
                     channel = ably.channels.get('gorod-teney');
                     
+                    // ⭐ Подписка на обновления
                     channel.subscribe('state-update', function(message) {
                         if (isSyncing) return;
                         console.log('📩 Получено обновление');
                         applyStateFromAbly(message.data);
                     });
                     
+                    // ⭐ Обработка запроса состояния
+                    channel.subscribe('request-state', function(message) {
+                        console.log('📩 Получен запрос состояния');
+                        
+                        if (gameState.players.length > 0) {
+                            var state = {
+                                players: gameState.players,
+                                stage: currentStage,
+                                gameOver: gameOver,
+                                stageLocked: stageLocked,
+                                choices: gameState.choices || {},
+                                ready: playerReady || {},
+                                results: roundResults || []
+                            };
+                            
+                            channel.publish('state-response', {
+                                targetId: message.data.playerId,
+                                state: state
+                            });
+                            console.log('📤 Отправлен ответ на запрос состояния');
+                        }
+                    });
+                    
+                    // ⭐ Обработка ответа на запрос
+                    channel.subscribe('state-response', function(message) {
+                        var data = message.data;
+                        
+                        if (data.targetId === myPlayerId) {
+                            console.log('📩 Получен ответ на запрос состояния');
+                            applyStateFromAbly(data.state);
+                        }
+                    });
+                    
+                    // ⭐ Запрашиваем состояние при подключении
                     if (myPlayerId) {
+                        console.log('📤 Запрос текущего состояния...');
                         channel.publish('request-state', { playerId: myPlayerId });
                     }
+                    
+                    // ⭐ Через 2 секунды отправляем свое состояние
+                    setTimeout(function() {
+                        if (myPlayerId && gameState.players.length > 0) {
+                            var state = {
+                                players: gameState.players,
+                                stage: currentStage,
+                                gameOver: gameOver,
+                                stageLocked: stageLocked,
+                                choices: gameState.choices || {},
+                                ready: playerReady || {},
+                                results: roundResults || []
+                            };
+                            channel.publish('state-update', state);
+                            console.log('📤 Отправлено начальное состояние');
+                        }
+                    }, 2000);
                     
                     if (!isInitialized) {
                         initGame();
@@ -1263,7 +1329,6 @@
         // ЗАПУСК
         // ============================================
         
-        // 1. Сначала загружаем Ably
         loadAblyScript().then(function() {
             console.log('✅ Ably готов к использованию!');
             syncStatus.innerHTML = '<i class="fas fa-wifi"></i> Подключение к Ably...';
@@ -1274,8 +1339,6 @@
             console.error('❌ Не удалось загрузить Ably:', err);
             syncStatus.innerHTML = '<i class="fas fa-wifi"></i> ⚠️ Игра работает без синхронизации';
             syncStatus.className = 'sync-status error';
-            
-            // Запускаем игру без синхронизации
             initGame();
         });
         
