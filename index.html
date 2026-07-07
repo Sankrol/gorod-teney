@@ -7,8 +7,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     
     <style>
-        /* ... все стили такие же ... */
-        /* Скопируйте стили из предыдущего кода */
         * {
             margin: 0;
             padding: 0;
@@ -34,8 +32,367 @@
             color: #e6dacf;
             border: 1px solid #7a5f4b;
         }
-        /* ... Остальные стили такие же ... */
-        /* Я сократил для читаемости, но вы скопируйте все стили из предыдущего кода */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+            background: #231c17;
+            padding: 12px 18px;
+            border-radius: 60px;
+            border: 1px solid #6a4f3a;
+            box-shadow: inset 0 2px 6px #0a0705;
+        }
+        .gold-display {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.6rem;
+            font-weight: bold;
+            background: #2f221b;
+            padding: 4px 18px 4px 14px;
+            border-radius: 40px;
+            border: 1px solid #b8946a;
+            box-shadow: 0 0 12px #7a5f3f55;
+        }
+        .gold-display i { color: #f5c542; text-shadow: 0 0 12px #f5b81b; }
+        .gold-display span { color: #fae1b0; letter-spacing: 1px; }
+        .sound-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #1f1713;
+            padding: 6px 16px 6px 12px;
+            border-radius: 40px;
+            border: 1px solid #5f4a38;
+        }
+        .sound-control i { color: #bb9a7a; font-size: 1.1rem; }
+        input[type="range"] {
+            width: 80px;
+            height: 4px;
+            -webkit-appearance: none;
+            background: #5f4a38;
+            border-radius: 10px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px; height: 16px;
+            border-radius: 50%;
+            background: #dbbd9a;
+            border: 2px solid #3b2b20;
+            cursor: pointer;
+            box-shadow: 0 0 10px #d4a56e;
+        }
+        .players-panel {
+            background: #1f1713b8;
+            backdrop-filter: blur(2px);
+            border-radius: 40px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            border: 1px solid #4f3b2d;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px 18px;
+            box-shadow: inset 0 0 20px #0f0a07;
+            min-height: 56px;
+        }
+        .player-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #2c211b;
+            padding: 4px 14px 4px 10px;
+            border-radius: 30px;
+            border: 1px solid #6f5542;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: 0.2s;
+        }
+        .player-badge .gold-badge { color: #f5c542; margin-left: 4px; font-weight: bold; }
+        .player-badge.ready { border-color: #b8946a; background: #3f2d22; box-shadow: 0 0 16px #7a5f3f44; }
+        .player-badge.me { border-color: #dbbd9a; background: #4f372a; box-shadow: 0 0 20px #b8946a66; }
+        .stage-scene {
+            background: #19120eb0;
+            backdrop-filter: blur(4px);
+            border-radius: 36px;
+            padding: 24px 18px 18px;
+            border: 1px solid #705744;
+            box-shadow: inset 0 0 30px #0d0907;
+            min-height: 340px;
+            transition: 0.3s;
+        }
+        .stage-title {
+            font-size: 1.8rem;
+            font-weight: 300;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            color: #dac29c;
+            text-shadow: 0 0 10px #3a281e;
+            border-bottom: 1px dashed #6f5540;
+            padding-bottom: 8px;
+            margin-bottom: 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+        .stage-title small { font-size: 0.8rem; letter-spacing: 2px; color: #b39579; }
+        .flash-content {
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+        }
+        .flash-content p {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            text-align: center;
+            max-width: 600px;
+            background: #1f1612a0;
+            padding: 12px 20px;
+            border-radius: 40px;
+            border-left: 4px solid #b28b66;
+            margin: 10px 0;
+        }
+        .video-container {
+            width: 100%;
+            max-width: 560px;
+            margin: 10px auto;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 2px solid #6f5542;
+            box-shadow: 0 0 40px #0d0907;
+            background: #0b0807;
+            position: relative;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .video-container video {
+            width: 100%;
+            display: block;
+            border-radius: 18px;
+        }
+        .video-placeholder {
+            width: 100%;
+            padding: 60px 20px;
+            text-align: center;
+            background: #1a1410;
+            color: #6f5b4a;
+            font-size: 1.2rem;
+            letter-spacing: 4px;
+            border-radius: 18px;
+            border: 1px dashed #5f4a38;
+        }
+        .hooded-figure {
+            width: 100%;
+            background: radial-gradient(circle at 30% 40%, #1a1410 0%, #0b0807 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            min-height: 200px;
+            position: relative;
+        }
+        .hooded-figure .figure-content {
+            text-align: center;
+            color: #8a7a6a;
+            font-size: 1.6rem;
+            letter-spacing: 8px;
+            text-shadow: 0 0 30px #1a1410;
+        }
+        .hooded-figure .figure-content i {
+            font-size: 5rem;
+            color: #4f3a2e;
+            text-shadow: 0 0 40px #2f221c;
+            display: block;
+            margin-bottom: 12px;
+        }
+        .hooded-figure .figure-content .sub {
+            font-size: 0.8rem;
+            color: #5f4a38;
+            letter-spacing: 6px;
+        }
+        .choices-grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 14px;
+            margin: 20px 0 10px;
+        }
+        .choice-btn {
+            background: #2f221b;
+            border: 2px solid #70533b;
+            color: #f0e0cc;
+            padding: 14px 28px;
+            border-radius: 60px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 6px 0 #1f130e;
+            flex: 1 0 auto;
+            justify-content: center;
+            min-width: 140px;
+        }
+        .choice-btn:hover { background: #4b3428; border-color: #b48c66; transform: scale(1.02); box-shadow: 0 8px 0 #2f1d14; }
+        .choice-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #1f130e; }
+        .choice-btn:disabled {
+            opacity: 0.4;
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #1f130e;
+            pointer-events: none;
+        }
+        .choice-btn.chosen { border-color: #b8946a; background: #4b3428; box-shadow: 0 0 20px #7a5f3f77; }
+        .outcome-box {
+            background: #1e1612e0;
+            border-radius: 40px;
+            padding: 10px 20px;
+            margin: 12px 0;
+            border-left: 6px solid #bb8f64;
+            font-size: 1.1rem;
+            text-align: center;
+        }
+        .waiting-panel {
+            background: #0f0b09;
+            border-radius: 40px;
+            padding: 14px 18px;
+            margin-top: 20px;
+            border: 1px dashed #7a604a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        .waiting-panel i { color: #b7a084; font-size: 1.4rem; animation: pulse 1.8s infinite; }
+        @keyframes pulse { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+        .waiting-panel span { font-size: 1rem; letter-spacing: 2px; color: #cbb297; }
+        .ready-btn {
+            background: #3a2920;
+            border: 1px solid #b8946a;
+            color: #f0e0cc;
+            padding: 8px 28px;
+            border-radius: 60px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .ready-btn:hover { background: #5b4032; }
+        .ready-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .reset-area {
+            display: flex;
+            justify-content: center;
+            margin-top: 12px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .reset-btn, .nick-btn {
+            background: #3a2920;
+            border: 1px solid #735a44;
+            color: #dac29c;
+            padding: 8px 28px;
+            border-radius: 60px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .reset-btn:hover, .nick-btn:hover { background: #5b4032; color: #f5e7d4; }
+        .nick-overlay {
+            background: #0b0807ee;
+            backdrop-filter: blur(6px);
+            border-radius: 48px;
+            padding: 30px 24px;
+            text-align: center;
+            border: 1px solid #7a5f4b;
+            margin-bottom: 16px;
+        }
+        .nick-overlay h2 {
+            font-weight: 300;
+            letter-spacing: 6px;
+            color: #dac29c;
+            margin-bottom: 12px;
+        }
+        .nick-overlay .sub {
+            color: #b39579;
+            margin-bottom: 16px;
+            font-size: 0.95rem;
+        }
+        .nick-input-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .nick-input-row input {
+            background: #1f1713;
+            border: 1px solid #5f4a38;
+            color: #e6dacf;
+            padding: 10px 18px;
+            border-radius: 40px;
+            font-size: 1rem;
+            min-width: 160px;
+            outline: none;
+        }
+        .nick-input-row input:focus { border-color: #b8946a; }
+        .nick-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin: 12px 0;
+        }
+        .nick-tag {
+            background: #2c211b;
+            padding: 6px 18px;
+            border-radius: 30px;
+            border: 1px solid #6f5542;
+            font-size: 0.9rem;
+        }
+        .nick-tag i { margin-right: 6px; color: #b59373; }
+        .hidden { display: none !important; }
+        .test-notice {
+            background: #2f221b;
+            border: 1px solid #6f5542;
+            border-radius: 30px;
+            padding: 8px 18px;
+            font-size: 0.8rem;
+            color: #b39579;
+            text-align: center;
+            margin-bottom: 12px;
+        }
+        .test-notice i { color: #b8946a; margin-right: 8px; }
+        footer {
+            text-align: center;
+            margin-top: 16px;
+            font-size: 0.75rem;
+            color: #6f5b4a;
+            letter-spacing: 2px;
+        }
+        .sync-status {
+            font-size: 0.7rem;
+            color: #4caf50;
+            letter-spacing: 1px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .sync-status i { font-size: 0.6rem; }
+        .sync-status.error { color: #f44336; }
+        .sync-status.loading { color: #ffa726; }
+        @media (max-width: 550px) {
+            .header { flex-direction: column; align-items: stretch; }
+            .sound-control { justify-content: center; }
+            .choice-btn { min-width: 100px; padding: 12px 14px; }
+        }
     </style>
 </head>
 <body>
@@ -121,55 +478,17 @@
         console.log('🚀 Запуск игры "Город Теней"');
         
         // ============================================
-        // ⚡ ЗАГРУЗКА ABLY ЧЕРЕЗ FETCH (ОБХОД CORS)
+        // ⚡ ABLY КЛЮЧ
         // ============================================
-        
-        function loadAbly() {
-            return new Promise((resolve, reject) => {
-                // Уже загружен?
-                if (typeof Ably !== 'undefined') {
-                    console.log('✅ Ably уже загружен');
-                    resolve(Ably);
-                    return;
-                }
-                
-                // Используем версию, которая работает с CORS
-                const url = 'https://cdn.ably.com/lib/ably-1.2.0.min.js';
-                console.log(`🔄 Загружаем Ably из: ${url}`);
-                
-                const script = document.createElement('script');
-                script.src = url;
-                script.async = true;
-                script.crossOrigin = 'anonymous';
-                
-                script.onload = function() {
-                    if (typeof Ably !== 'undefined') {
-                        console.log('✅ Ably загружен успешно');
-                        resolve(Ably);
-                    } else {
-                        console.warn('⚠️ Скрипт загружен, но Ably не определен');
-                        reject(new Error('Ably не определен после загрузки'));
-                    }
-                };
-                
-                script.onerror = function() {
-                    console.error('❌ Не удалось загрузить Ably');
-                    reject(new Error('Не удалось загрузить Ably'));
-                };
-                
-                document.head.appendChild(script);
-            });
-        }
+        const ABLY_KEY = '5WEVUw.Hu41oA:LkbFLRC4TTLJSxF1ZL1xsOSGHBeyR8ar-L4Ml7u1rTE';
         
         // ============================================
         // ПЕРЕМЕННЫЕ
         // ============================================
-        
         let ably = null;
         let channel = null;
         let isSyncing = false;
-        
-        const ABLY_KEY = '5WEVUw.Hu41oA:LkbFLRC4TTLJSxF1ZL1xsOSGHBeyR8ar-L4Ml7u1rTE';
+        let ablyLoaded = false;
         
         let myPlayerId = localStorage.getItem('darkfantasy_player_id_v3') || null;
         let gameState = { players: [], stage: 0, gameOver: false, stageLocked: false, choices: {}, ready: {} };
@@ -208,17 +527,78 @@
         const hoodedFigure = document.getElementById('hoodedFigure');
         
         // ============================================
+        // ЗАГРУЗКА ABLY
+        // ============================================
+        function loadAblyScript() {
+            return new Promise(function(resolve, reject) {
+                if (typeof Ably !== 'undefined') {
+                    console.log('✅ Ably уже загружен');
+                    ablyLoaded = true;
+                    resolve(Ably);
+                    return;
+                }
+                
+                // Пробуем разные источники
+                var sources = [
+                    'https://cdn.ably.com/lib/ably.min-1.js',
+                    'https://cdn.ably.com/lib/ably-1.2.0.min.js'
+                ];
+                
+                var index = 0;
+                var loaded = false;
+                
+                function tryNext() {
+                    if (loaded) return;
+                    if (index >= sources.length) {
+                        reject(new Error('Не удалось загрузить Ably ни из одного источника'));
+                        return;
+                    }
+                    
+                    var src = sources[index];
+                    console.log('🔄 Загрузка Ably из:', src);
+                    
+                    var script = document.createElement('script');
+                    script.src = src;
+                    script.async = true;
+                    
+                    script.onload = function() {
+                        if (typeof Ably !== 'undefined') {
+                            loaded = true;
+                            ablyLoaded = true;
+                            console.log('✅ Ably загружен из:', src);
+                            resolve(Ably);
+                        } else {
+                            console.warn('⚠️ Скрипт загружен, но Ably не определен');
+                            index++;
+                            tryNext();
+                        }
+                    };
+                    
+                    script.onerror = function() {
+                        console.warn('❌ Не удалось загрузить из:', src);
+                        index++;
+                        tryNext();
+                    };
+                    
+                    document.head.appendChild(script);
+                }
+                
+                tryNext();
+            });
+        }
+        
+        // ============================================
         // ЗВУК
         // ============================================
-        
         let audioCtx = null;
-        function playSound(type = 'click') {
+        function playSound(type) {
+            type = type || 'click';
             try {
                 if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const vol = parseFloat(volumeSlider.value) || 0.5;
+                var vol = parseFloat(volumeSlider.value) || 0.5;
                 if (vol === 0) return;
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
+                var osc = audioCtx.createOscillator();
+                var gain = audioCtx.createGain();
                 osc.connect(gain);
                 gain.connect(audioCtx.destination);
                 gain.gain.value = vol * 0.2;
@@ -233,9 +613,8 @@
         // ============================================
         // ВИДЕО
         // ============================================
-        
         function getVideoPlaceholderText(stageIdx, choiceIdx) {
-            const videoMap = {
+            var videoMap = {
                 '1-0': 'Таверна: пьяный разговор и тёмные слухи',
                 '1-1': 'Отдых: сон под шум дождя',
                 '1-2': 'Шахты: эхо ударов кирки',
@@ -252,8 +631,8 @@
                 '5-1': 'Доки: крики чаек',
                 '5-2': 'Алтарь: тёмный ритуал'
             };
-            const key = `${stageIdx}-${choiceIdx}`;
-            return videoMap[key] || `🎬 Сцена ${stageIdx}.${choiceIdx}`;
+            var key = stageIdx + '-' + choiceIdx;
+            return videoMap[key] || '🎬 Сцена ' + stageIdx + '.' + choiceIdx;
         }
         
         function showVideo(stageIdx, choiceIdx) {
@@ -261,13 +640,13 @@
                 clearTimeout(videoTimer);
                 videoTimer = null;
             }
-            const placeholderText = getVideoPlaceholderText(stageIdx, choiceIdx);
-            videoPlaceholder.textContent = `🎬 ${placeholderText}`;
+            var placeholderText = getVideoPlaceholderText(stageIdx, choiceIdx);
+            videoPlaceholder.textContent = '🎬 ' + placeholderText;
             videoPlaceholder.style.display = 'block';
             storyVideo.style.display = 'none';
             hoodedFigure.style.display = 'none';
-            const delay = 5000 + Math.random() * 5000;
-            videoTimer = setTimeout(() => {
+            var delay = 5000 + Math.random() * 5000;
+            videoTimer = setTimeout(function() {
                 videoPlaceholder.style.display = 'none';
                 storyVideo.style.display = 'none';
                 hoodedFigure.style.display = 'flex';
@@ -284,8 +663,8 @@
             videoPlaceholder.style.display = 'block';
             storyVideo.style.display = 'none';
             hoodedFigure.style.display = 'none';
-            const delay = 6000 + Math.random() * 4000;
-            videoTimer = setTimeout(() => {
+            var delay = 6000 + Math.random() * 4000;
+            videoTimer = setTimeout(function() {
                 videoPlaceholder.style.display = 'none';
                 storyVideo.style.display = 'none';
                 hoodedFigure.style.display = 'flex';
@@ -302,8 +681,8 @@
             videoPlaceholder.style.display = 'block';
             storyVideo.style.display = 'none';
             hoodedFigure.style.display = 'none';
-            const delay = 6000 + Math.random() * 4000;
-            videoTimer = setTimeout(() => {
+            var delay = 6000 + Math.random() * 4000;
+            videoTimer = setTimeout(function() {
                 videoPlaceholder.style.display = 'none';
                 storyVideo.style.display = 'none';
                 hoodedFigure.style.display = 'flex';
@@ -324,8 +703,7 @@
         // ============================================
         // ДАННЫЕ ЭТАПОВ
         // ============================================
-        
-        const stagesData = [
+        var stagesData = [
             null,
             {
                 title: 'Таверна, отдых или шахты',
@@ -377,39 +755,38 @@
         // ============================================
         // ОТРИСОВКА
         // ============================================
-        
         function renderPlayers() {
-            let html = '';
-            gameState.players.forEach((p) => {
-                const isMe = p.id === myPlayerId;
-                const hasChosen = gameState.choices && gameState.choices[p.id] !== undefined;
-                const isReady = playerReady[p.id] || false;
-                html += `<div class="player-badge ${hasChosen ? 'ready' : ''} ${isMe ? 'me' : ''}">
-                    <i class="fas fa-user-circle"></i> ${p.name} ${isMe ? ' (вы)' : ''}
-                    <span class="gold-badge"><i class="fas fa-coins"></i> ${p.gold}</span>
-                    ${hasChosen ? ' ✅' : ''}
-                    ${isReady ? ' ⏳' : ''}
-                </div>`;
+            var html = '';
+            gameState.players.forEach(function(p) {
+                var isMe = p.id === myPlayerId;
+                var hasChosen = gameState.choices && gameState.choices[p.id] !== undefined;
+                var isReady = playerReady[p.id] || false;
+                html += '<div class="player-badge ' + (hasChosen ? 'ready' : '') + ' ' + (isMe ? 'me' : '') + '">' +
+                    '<i class="fas fa-user-circle"></i> ' + p.name + (isMe ? ' (вы)' : '') +
+                    '<span class="gold-badge"><i class="fas fa-coins"></i> ' + p.gold + '</span>' +
+                    (hasChosen ? ' ✅' : '') +
+                    (isReady ? ' ⏳' : '') +
+                '</div>';
             });
             playersPanel.innerHTML = html;
-            const me = gameState.players.find(p => p.id === myPlayerId);
+            var me = gameState.players.find(function(p) { return p.id === myPlayerId; });
             if (me) goldSpan.textContent = me.gold;
             else if (gameState.players.length) goldSpan.textContent = gameState.players[0].gold;
         }
         
         function renderNickListUI() {
-            const list = gameState.players;
+            var list = gameState.players;
             if (list.length === 0) {
                 nickList.innerHTML = '<span style="color:#6f5b4a;">Нет игроков. Присоединяйтесь!</span>';
             } else {
-                nickList.innerHTML = list.map(p => 
-                    `<span class="nick-tag"><i class="fas fa-user"></i> ${p.name} ${p.id === myPlayerId ? '⭐' : ''}</span>`
-                ).join('');
+                nickList.innerHTML = list.map(function(p) {
+                    return '<span class="nick-tag"><i class="fas fa-user"></i> ' + p.name + (p.id === myPlayerId ? ' ⭐' : '') + '</span>';
+                }).join('');
             }
-            playerCountMsg.textContent = `Игроков: ${list.length} (нужно минимум 2)`;
+            playerCountMsg.textContent = 'Игроков: ' + list.length + ' (нужно минимум 2)';
             startGameBtn.style.display = (list.length >= 2 && myPlayerId) ? 'inline-block' : 'none';
             if (list.length >= 2 && myPlayerId) {
-                startGameBtn.textContent = `🚀 Начать игру (${list.length} игроков)`;
+                startGameBtn.textContent = '🚀 Начать игру (' + list.length + ' игроков)';
             }
         }
         
@@ -420,7 +797,7 @@
         }
         
         function updateGoldDisplay() {
-            const me = gameState.players.find(p => p.id === myPlayerId);
+            var me = gameState.players.find(function(p) { return p.id === myPlayerId; });
             if (me) goldSpan.textContent = me.gold;
             else if (gameState.players.length) goldSpan.textContent = gameState.players[0].gold;
         }
@@ -428,12 +805,12 @@
         // ============================================
         // СИНХРОНИЗАЦИЯ
         // ============================================
-        
         function syncToAbly() {
             if (isSyncing) return;
             if (!channel) return;
+            if (!ablyLoaded) return;
             
-            const state = {
+            var state = {
                 players: gameState.players,
                 stage: currentStage,
                 gameOver: gameOver,
@@ -479,7 +856,7 @@
                 playerReady = newState.ready || {};
                 roundResults = newState.results || [];
                 
-                if (myPlayerId && !gameState.players.some(p => p.id === myPlayerId)) {
+                if (myPlayerId && !gameState.players.some(function(p) { return p.id === myPlayerId; })) {
                     myPlayerId = null;
                     localStorage.removeItem('darkfantasy_player_id_v3');
                     location.reload();
@@ -499,9 +876,8 @@
         // ============================================
         // UI СОСТОЯНИЕ
         // ============================================
-        
         function updateUIState() {
-            const me = gameState.players.find(p => p.id === myPlayerId);
+            var me = gameState.players.find(function(p) { return p.id === myPlayerId; });
             if (!me) return;
             
             if (gameOver) {
@@ -514,8 +890,8 @@
                 return;
             }
             
-            const hasChosen = gameState.choices && gameState.choices[myPlayerId] !== undefined;
-            const allChose = gameState.players.every(p => gameState.choices[p.id] !== undefined);
+            var hasChosen = gameState.choices && gameState.choices[myPlayerId] !== undefined;
+            var allChose = gameState.players.every(function(p) { return gameState.choices[p.id] !== undefined; });
             
             if (allChose && stageLocked) {
                 if (!playerReady[myPlayerId]) {
@@ -535,7 +911,6 @@
         // ============================================
         // ОБНОВЛЕНИЕ ЭТАПА
         // ============================================
-        
         function updateStageUI() {
             if (currentStage === 0) {
                 showPrologue();
@@ -547,26 +922,26 @@
                 return;
             }
             
-            const stageData = stagesData[currentStage];
+            var stageData = stagesData[currentStage];
             if (!stageData) return;
             
-            stageTitle.innerHTML = `<span>${stageData.title}</span><small>этап ${currentStage}/${totalStages}</small>`;
+            stageTitle.innerHTML = '<span>' + stageData.title + '</span><small>этап ' + currentStage + '/' + totalStages + '</small>';
             storyText.textContent = stageData.desc;
             
-            const hasChosen = gameState.choices && gameState.choices[myPlayerId] !== undefined;
-            const allChose = gameState.players.every(p => gameState.choices[p.id] !== undefined);
+            var hasChosen = gameState.choices && gameState.choices[myPlayerId] !== undefined;
+            var allChose = gameState.players.every(function(p) { return gameState.choices[p.id] !== undefined; });
             
             if (!hasChosen && !allChose && waitingForChoice) {
                 choicesContainer.innerHTML = '';
-                stageData.choices.forEach((choice, idx) => {
-                    const btn = document.createElement('button');
+                stageData.choices.forEach(function(choice, idx) {
+                    var btn = document.createElement('button');
                     btn.className = 'choice-btn';
                     btn.textContent = choice.text;
                     btn.dataset.idx = idx;
-                    btn.addEventListener('click', () => handleChoice(idx, currentStage));
+                    btn.addEventListener('click', function() { handleChoice(idx, currentStage); });
                     choicesContainer.appendChild(btn);
                 });
-                waitingText.textContent = `Ожидание выбора... (${Object.keys(gameState.choices).length}/${gameState.players.length})`;
+                waitingText.textContent = 'Ожидание выбора... (' + Object.keys(gameState.choices).length + '/' + gameState.players.length + ')';
             } else if (allChose) {
                 waitingForChoice = false;
                 stageLocked = true;
@@ -576,7 +951,7 @@
                 readyBtn.disabled = false;
                 showRoundResults();
             } else {
-                waitingText.textContent = `Ожидание выбора... (${Object.keys(gameState.choices).length}/${gameState.players.length})`;
+                waitingText.textContent = 'Ожидание выбора... (' + Object.keys(gameState.choices).length + '/' + gameState.players.length + ')';
                 readyBtn.style.display = 'none';
             }
             
@@ -586,7 +961,6 @@
         // ============================================
         // ПРОЛОГ
         // ============================================
-        
         function showPrologue() {
             currentStage = 0;
             waitingForChoice = false;
@@ -594,18 +968,18 @@
             gameState.choices = {};
             playerReady = {};
             resetVideo();
-            stageTitle.innerHTML = `<span>Пролог</span><small>начало</small>`;
+            stageTitle.innerHTML = '<span>Пролог</span><small>начало</small>';
             showPrologueVideo();
             storyText.textContent = 'Тени сгущаются над старым городком. Каждый житель имеет 3 дублона. Пройдите 5 испытаний вместе.';
-            choicesContainer.innerHTML = `<button class="choice-btn" id="startStageBtn"><i class="fas fa-play"></i> Начать странствие</button>`;
+            choicesContainer.innerHTML = '<button class="choice-btn" id="startStageBtn"><i class="fas fa-play"></i> Начать странствие</button>';
             outcomeDisplay.style.display = 'none';
             
-            const startBtn = document.getElementById('startStageBtn');
+            var startBtn = document.getElementById('startStageBtn');
             if (startBtn) {
                 startBtn.addEventListener('click', function handler() {
                     if (gameState.players.length < 2) return;
                     playSound('click');
-                    gameState.players.forEach(p => p.gold = 3);
+                    gameState.players.forEach(function(p) { p.gold = 3; });
                     gameState.choices = {};
                     playerReady = {};
                     currentStage = 1;
@@ -625,11 +999,10 @@
         // ============================================
         // ЗАПУСК ЭТАПА
         // ============================================
-        
         function startStage(stageIndex) {
             if (gameOver) return;
             if (stageIndex < 1 || stageIndex > totalStages) return;
-            const stageData = stagesData[stageIndex];
+            var stageData = stagesData[stageIndex];
             if (!stageData) return;
             
             currentStage = stageIndex;
@@ -646,7 +1019,6 @@
         // ============================================
         // ОБРАБОТКА ВЫБОРА
         // ============================================
-        
         function handleChoice(choiceIndex, stageIndex) {
             if (gameOver || !waitingForChoice || stageLocked) return;
             if (!myPlayerId) return;
@@ -664,7 +1036,6 @@
         // ============================================
         // ГОТОВНОСТЬ
         // ============================================
-        
         function setReady() {
             if (!myPlayerId) return;
             if (!stageLocked) return;
@@ -676,7 +1047,7 @@
             saveState();
             renderAll();
             
-            const allReady = gameState.players.every(p => playerReady[p.id] === true);
+            var allReady = gameState.players.every(function(p) { return playerReady[p.id] === true; });
             if (allReady) {
                 resetVideo();
                 if (currentStage === totalStages) {
@@ -696,34 +1067,32 @@
         // ============================================
         // РЕЗУЛЬТАТЫ
         // ============================================
-        
         function showRoundResults() {
-            let outcomeHtml = roundResults.map(r => 
-                `<div style="padding:4px 0; border-bottom:1px solid #3f2d22;">${r.name}: ${r.desc} (${r.delta >= 0 ? '+' : ''}${r.delta}) → ${r.gold} дублонов</div>`
-            ).join('');
+            var outcomeHtml = roundResults.map(function(r) {
+                return '<div style="padding:4px 0; border-bottom:1px solid #3f2d22;">' + r.name + ': ' + r.desc + ' (' + (r.delta >= 0 ? '+' : '') + r.delta + ') → ' + r.gold + ' дублонов</div>';
+            }).join('');
             outcomeDisplay.style.display = 'block';
-            outcomeDisplay.innerHTML = `<i class="fas fa-scroll"></i> Итоги этапа:<br>${outcomeHtml}`;
+            outcomeDisplay.innerHTML = '<i class="fas fa-scroll"></i> Итоги этапа:<br>' + outcomeHtml;
             renderAll();
         }
         
         // ============================================
         // ЭПИЛОГ
         // ============================================
-        
         function showEpilogue() {
-            stageTitle.innerHTML = `<span>Эпилог</span><small>итог</small>`;
+            stageTitle.innerHTML = '<span>Эпилог</span><small>итог</small>';
             showEpilogueVideo();
-            const sorted = [...gameState.players].sort((a,b) => b.gold - a.gold);
-            let rankHtml = sorted.map((p, i) => {
-                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '▪️';
-                return `<div style="display:flex; justify-content:space-between; padding:6px 10px; border-bottom:1px solid #4f3a2d;">
-                    <span>${medal} ${p.name}</span> <span><i class="fas fa-coins"></i> ${p.gold}</span>
-                </div>`;
+            var sorted = gameState.players.slice().sort(function(a, b) { return b.gold - a.gold; });
+            var rankHtml = sorted.map(function(p, i) {
+                var medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '▪️';
+                return '<div style="display:flex; justify-content:space-between; padding:6px 10px; border-bottom:1px solid #4f3a2d;">' +
+                    '<span>' + medal + ' ' + p.name + '</span> <span><i class="fas fa-coins"></i> ' + p.gold + '</span>' +
+                '</div>';
             }).join('');
             storyText.textContent = 'Судьба свершилась. Вот кто сколько дублонов собрал:';
             choicesContainer.innerHTML = '';
             outcomeDisplay.style.display = 'block';
-            outcomeDisplay.innerHTML = `<div style="text-align:left; max-width:300px; margin:0 auto;">${rankHtml}</div>`;
+            outcomeDisplay.innerHTML = '<div style="text-align:left; max-width:300px; margin:0 auto;">' + rankHtml + '</div>';
             waitingText.textContent = 'Игра завершена. Нажми "Перерождение"';
             readyBtn.style.display = 'none';
             renderAll();
@@ -732,7 +1101,6 @@
         // ============================================
         // СБРОС
         // ============================================
-        
         function resetGame() {
             try {
                 if (channel) {
@@ -758,19 +1126,18 @@
         // ============================================
         // ЛОББИ
         // ============================================
-        
         function joinGame() {
-            const name = nickInput.value.trim();
+            var name = nickInput.value.trim();
             if (!name) return;
             if (gameState.players.length >= 6) return;
-            if (gameState.players.some(p => p.name.toLowerCase() === name.toLowerCase())) return;
+            if (gameState.players.some(function(p) { return p.name.toLowerCase() === name.toLowerCase(); })) return;
             if (myPlayerId) {
-                gameState.players = gameState.players.filter(p => p.id !== myPlayerId);
+                gameState.players = gameState.players.filter(function(p) { return p.id !== myPlayerId; });
             }
-            const id = 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+            var id = 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
             myPlayerId = id;
             localStorage.setItem('darkfantasy_player_id_v3', id);
-            gameState.players.push({ id, name, gold: 3 });
+            gameState.players.push({ id: id, name: name, gold: 3 });
             saveState();
             nickInput.value = '';
             renderAll();
@@ -781,7 +1148,7 @@
             if (!myPlayerId) return;
             nicknamePhase.classList.add('hidden');
             gamePhase.classList.remove('hidden');
-            gameState.players.forEach(p => p.gold = 3);
+            gameState.players.forEach(function(p) { p.gold = 3; });
             gameState.choices = {};
             playerReady = {};
             currentStage = 0;
@@ -794,8 +1161,12 @@
         // ============================================
         // ПОДКЛЮЧЕНИЕ К ABLY
         // ============================================
-        
         function connectAbly() {
+            if (!ablyLoaded) {
+                console.warn('⚠️ Ably не загружен, пропускаем подключение');
+                return;
+            }
+            
             try {
                 if (!ably) {
                     ably = new Ably.Realtime(ABLY_KEY);
@@ -839,13 +1210,15 @@
                 console.error('❌ Ошибка подключения Ably:', e);
                 syncStatus.innerHTML = '<i class="fas fa-wifi"></i> ❌ Ошибка: ' + e.message;
                 syncStatus.className = 'sync-status error';
+                if (!isInitialized) {
+                    initGame();
+                }
             }
         }
         
         // ============================================
         // ИНИЦИАЛИЗАЦИЯ ИГРЫ
         // ============================================
-        
         function initGame() {
             if (isInitialized) return;
             isInitialized = true;
@@ -853,9 +1226,9 @@
             console.log('🎮 Инициализация игры');
             
             try {
-                const backup = localStorage.getItem('darkfantasy_game_state_backup');
+                var backup = localStorage.getItem('darkfantasy_game_state_backup');
                 if (backup) {
-                    const data = JSON.parse(backup);
+                    var data = JSON.parse(backup);
                     if (data.players && data.players.length > 0) {
                         gameState.players = data.players;
                         currentStage = data.stage || 0;
@@ -869,7 +1242,7 @@
                 }
             } catch(e) {}
             
-            if (myPlayerId && gameState.players.some(p => p.id === myPlayerId)) {
+            if (myPlayerId && gameState.players.some(function(p) { return p.id === myPlayerId; })) {
                 if (currentStage > 0 || gameOver) {
                     nicknamePhase.classList.add('hidden');
                     gamePhase.classList.remove('hidden');
@@ -890,8 +1263,8 @@
         // ЗАПУСК
         // ============================================
         
-        // ПРОСТО ЗАГРУЖАЕМ ABLY И ЗАПУСКАЕМ ИГРУ
-        loadAbly().then(function() {
+        // 1. Сначала загружаем Ably
+        loadAblyScript().then(function() {
             console.log('✅ Ably готов к использованию!');
             syncStatus.innerHTML = '<i class="fas fa-wifi"></i> Подключение к Ably...';
             syncStatus.className = 'sync-status loading';
@@ -899,7 +1272,7 @@
             
         }).catch(function(err) {
             console.error('❌ Не удалось загрузить Ably:', err);
-            syncStatus.innerHTML = '<i class="fas fa-wifi"></i> ❌ Ошибка загрузки Ably. Игра работает локально.';
+            syncStatus.innerHTML = '<i class="fas fa-wifi"></i> ⚠️ Игра работает без синхронизации';
             syncStatus.className = 'sync-status error';
             
             // Запускаем игру без синхронизации
@@ -909,7 +1282,6 @@
         // ============================================
         // СОБЫТИЯ
         // ============================================
-        
         joinBtn.addEventListener('click', joinGame);
         nickInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') joinGame(); });
         startGameBtn.addEventListener('click', startGameByAnyone);
@@ -917,12 +1289,8 @@
         resetBtn.addEventListener('click', resetGame);
         volumeSlider.addEventListener('input', function() {});
         
-        if (typeof Ably !== 'undefined' && !isInitialized) {
-            console.log('✅ Ably уже был загружен');
-            connectAbly();
-        }
-        
         console.log('🚀 Игра "Город Теней" загружена');
+        
     })();
 </script>
 </body>
