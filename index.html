@@ -527,7 +527,7 @@
         const hoodedFigure = document.getElementById('hoodedFigure');
         
         // ============================================
-        // ЗАГРУЗКА ABLY (ВЕРСИЯ 2.x - ИСПРАВЛЕННЫЙ CDN)
+        // ⚡ ЗАГРУЗКА ABLY — рабочая версия 1.2.9
         // ============================================
         function loadAblyScript() {
             return new Promise(function(resolve, reject) {
@@ -538,11 +538,10 @@
                     return;
                 }
                 
-                // ✅ ИСПРАВЛЕННЫЕ ССЫЛКИ НА ВЕРСИЮ 2.x
                 var sources = [
-                    'https://cdn.jsdelivr.net/npm/ably@2.6.1/dist/ably.min.js',
-                    'https://unpkg.com/ably@2.6.1/dist/ably.min.js',
-                    'https://cdn.ably.com/lib/ably-2.0.1.min.js'
+                    'https://cdnjs.cloudflare.com/ajax/libs/ably/1.2.9/ably.min.js',
+                    'https://cdnjs.cloudflare.com/ajax/libs/ably/1.2.8/ably.min.js',
+                    'https://cdn.ably.com/lib/ably-1.2.0.min.js'
                 ];
                 
                 var index = 0;
@@ -1167,7 +1166,7 @@
         }
         
         // ============================================
-        // ПОДКЛЮЧЕНИЕ К ABLY (ВЕРСИЯ 2.x)
+        // ПОДКЛЮЧЕНИЕ К ABLY (исправленное для v1.2.9)
         // ============================================
         function connectAbly() {
             if (!ablyLoaded) {
@@ -1177,8 +1176,8 @@
             
             try {
                 if (!ably) {
-                    // ✅ НОВЫЙ СИНТАКСИС ДЛЯ V2
-                    ably = new Ably.Realtime({ key: ABLY_KEY });
+                    // Используем старый синтаксис для версии 1.2.9
+                    ably = new Ably.Realtime(ABLY_KEY);
                 }
                 
                 ably.connection.on('connected', function() {
@@ -1188,14 +1187,12 @@
                     
                     channel = ably.channels.get('gorod-teney');
                     
-                    // Подписка на обновления
                     channel.subscribe('state-update', function(message) {
                         if (isSyncing) return;
                         console.log('📩 Получено обновление');
                         applyStateFromAbly(message.data);
                     });
                     
-                    // Обработка запроса состояния
                     channel.subscribe('request-state', function(message) {
                         console.log('📩 Получен запрос состояния');
                         
@@ -1218,7 +1215,6 @@
                         }
                     });
                     
-                    // Обработка ответа на запрос
                     channel.subscribe('state-response', function(message) {
                         var data = message.data;
                         
@@ -1228,13 +1224,11 @@
                         }
                     });
                     
-                    // Запрашиваем состояние при подключении
                     if (myPlayerId) {
                         console.log('📤 Запрос текущего состояния...');
                         channel.publish('request-state', { playerId: myPlayerId });
                     }
                     
-                    // Через 2 секунды отправляем свое состояние
                     setTimeout(function() {
                         if (myPlayerId && gameState.players.length > 0) {
                             var state = {
@@ -1262,8 +1256,8 @@
                     syncStatus.className = 'sync-status error';
                 });
                 
-                ably.connection.on('failed', function() {
-                    console.error('❌ Ошибка соединения Ably');
+                ably.connection.on('failed', function(err) {
+                    console.error('❌ Ошибка соединения Ably:', err);
                     syncStatus.innerHTML = '<i class="fas fa-wifi"></i> ❌ Ошибка соединения';
                     syncStatus.className = 'sync-status error';
                 });
