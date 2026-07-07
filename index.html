@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Город Теней · Дарк Фэнтези</title>
+    <title>Город Теней · Синхронизация через Ably</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
     <style>
         * {
             margin: 0;
@@ -115,6 +116,15 @@
         .player-badge .gold-badge { color: #f5c542; margin-left: 4px; font-weight: bold; }
         .player-badge.ready { border-color: #b8946a; background: #3f2d22; box-shadow: 0 0 16px #7a5f3f44; }
         .player-badge.me { border-color: #dbbd9a; background: #4f372a; box-shadow: 0 0 20px #b8946a66; }
+        .player-badge .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-left: 4px;
+        }
+        .player-badge .status-dot.online { background: #4caf50; }
+        .player-badge .status-dot.offline { background: #666; }
 
         .stage-scene {
             background: #19120eb0;
@@ -191,13 +201,6 @@
             letter-spacing: 4px;
             border-radius: 18px;
             border: 1px dashed #5f4a38;
-        }
-        .video-container img {
-            width: 100%;
-            display: block;
-            border-radius: 18px;
-            max-height: 350px;
-            object-fit: cover;
         }
         .hooded-figure {
             width: 100%;
@@ -392,6 +395,17 @@
             color: #6f5b4a;
             letter-spacing: 2px;
         }
+        .sync-status {
+            font-size: 0.7rem;
+            color: #4caf50;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .sync-status i { font-size: 0.6rem; }
+        .sync-status.error { color: #f44336; }
+
         @media (max-width: 550px) {
             .header { flex-direction: column; align-items: stretch; }
             .sound-control { justify-content: center; }
@@ -402,7 +416,8 @@
 <body>
 <div class="game-container" id="app">
     <div class="test-notice">
-        <i class="fas fa-window-restore"></i> Тестовый режим: откройте несколько вкладок/окон для разных игроков
+        <i class="fas fa-wifi"></i> 
+        <span id="syncStatus">Подключение к Ably...</span>
     </div>
 
     <div class="header">
@@ -478,17 +493,20 @@
 
 <script>
     (function() {
-        // ====== СОСТОЯНИЕ ======
-        const STORAGE_KEY = 'darkfantasy_game_state_v3';
-        const PLAYER_ID_KEY = 'darkfantasy_player_id_v3';
-
-        let myPlayerId = localStorage.getItem(PLAYER_ID_KEY) || null;
-        let gameState = loadState();
+        // ===== ABLY =====
+        // ⚠️ ВАШ API КЛЮЧ (скопирован из Ably)
+        const ABLY_KEY = '5WEVUw.Hu41oA:LkbFLRC4TTLJSxF1ZL1xsOSGHBeyR8ar-L4Ml7u1rTE';
+        
+        let ably = null;
+        let channel = null;
+        let isSyncing = false;
+        let myPlayerId = localStorage.getItem('darkfantasy_player_id_v3') || null;
+        let gameState = { players: [], stage: 0, gameOver: false, stageLocked: false, choices: {}, ready: {} };
         let currentStage = 0;
         let gameOver = false;
         let waitingForChoice = false;
         let stageLocked = false;
-        let totalStages = 5;
+        const totalStages = 5;
         let roundResults = [];
         let playerReady = {};
         let videoTimer = null;
@@ -501,11 +519,9 @@
         const startGameBtn = document.getElementById('startGameNickBtn');
         const nickList = document.getElementById('nickList');
         const playerCountMsg = document.getElementById('playerCountMsg');
-
         const playersPanel = document.getElementById('playersPanel');
         const goldSpan = document.getElementById('goldAmount');
         const stageTitle = document.getElementById('stageTitle');
-        const flashContent = document.getElementById('flashContent');
         const storyText = document.getElementById('storyText');
         const choicesContainer = document.getElementById('choicesContainer');
         const outcomeDisplay = document.getElementById('outcomeDisplay');
@@ -513,13 +529,120 @@
         const readyBtn = document.getElementById('readyBtn');
         const resetBtn = document.getElementById('resetGameBtn');
         const volumeSlider = document.getElementById('volumeSlider');
-
+        const syncStatus = document.getElementById('syncStatus');
         const videoContainer = document.getElementById('videoContainer');
         const videoPlaceholder = document.getElementById('videoPlaceholder');
         const storyVideo = document.getElementById('storyVideo');
         const hoodedFigure = document.getElementById('hoodedFigure');
 
-        // ----- ЗВУК -----
+        // ===== ПОДКЛЮЧЕНИЕ К ABLY =====
+        function connectAbly() {
+            try {
+                ably = new Ably.Realtime(ABLY_KEY);
+                
+                ably.connection.on('connected', function() {
+                    syncStatus.innerHTML = '<i class="fas fa-wifi"></i> Синхронизация активна';
+                    syncStatus.className = 'sync-status';
+                    console.log('✅ Ably подключен');
+                    
+                    // Подписываемся на канал
+                    channel = ably.channels.get('gorod-teney');
+                    
+                    channel.subscribe('state-update', function(message) {
+                        if (isSyncing) return;
+                        const newState = message.data;
+                        console.log('📩 Получено обновление:', newState);
+                        applyStateFromAbly(newState);
+                    });
+                    
+                    // Запрашиваем текущее состояние
+                    channel.publish('request-state', { playerId: myPlayerId });
+                });
+                
+                ably.connection.on('disconnected', function() {
+                    syncStatus.innerHTML = '<i class="fas fa-wifi"></i> Потеря соединения...';
+                    syncStatus.className = 'sync-status error';
+                });
+                
+                ably.connection.on('failed', function() {
+                    syncStatus.innerHTML = '<i class="fas fa-wifi"></i> Ошибка подключения';
+                    syncStatus.className = 'sync-status error';
+                });
+            } catch(e) {
+                console.error('Ably error:', e);
+                syncStatus.innerHTML = '<i class="fas fa-wifi"></i> Ошибка: ' + e.message;
+                syncStatus.className = 'sync-status error';
+            }
+        }
+
+        // ===== ПРИМЕНЕНИЕ СОСТОЯНИЯ ИЗ ABLY =====
+        function applyStateFromAbly(newState) {
+            isSyncing = true;
+            
+            // Сохраняем текущего игрока
+            const me = gameState.players.find(p => p.id === myPlayerId);
+            
+            // Обновляем состояние
+            gameState.players = newState.players || [];
+            currentStage = newState.stage || 0;
+            gameOver = newState.gameOver || false;
+            stageLocked = newState.stageLocked || false;
+            gameState.choices = newState.choices || {};
+            playerReady = newState.ready || {};
+            roundResults = newState.results || [];
+            
+            // Проверяем, существует ли игрок
+            if (myPlayerId && !gameState.players.some(p => p.id === myPlayerId)) {
+                // Игрок был удален — возможно, перезагрузка
+                myPlayerId = null;
+                localStorage.removeItem('darkfantasy_player_id_v3');
+                location.reload();
+                return;
+            }
+            
+            renderAll();
+            updateUIState();
+            updateStageUI();
+            
+            isSyncing = false;
+        }
+
+        // ===== ОТПРАВКА СОСТОЯНИЯ В ABLY =====
+        function syncToAbly() {
+            if (isSyncing) return;
+            if (!channel) return;
+            
+            const state = {
+                players: gameState.players,
+                stage: currentStage,
+                gameOver: gameOver,
+                stageLocked: stageLocked,
+                choices: gameState.choices || {},
+                ready: playerReady || {},
+                results: roundResults || []
+            };
+            
+            channel.publish('state-update', state);
+            console.log('📤 Отправлено обновление');
+        }
+
+        // ===== ПЕРЕОПРЕДЕЛЯЕМ saveState =====
+        function saveState() {
+            // Сохраняем локально
+            localStorage.setItem('darkfantasy_game_state_backup', JSON.stringify({
+                players: gameState.players,
+                stage: currentStage,
+                gameOver: gameOver,
+                stageLocked: stageLocked,
+                choices: gameState.choices,
+                ready: playerReady,
+                results: roundResults
+            }));
+            // Отправляем в Ably
+            syncToAbly();
+        }
+
+        // ===== ЗВУК =====
         let audioCtx = null;
         function playSound(type = 'click') {
             try {
@@ -539,72 +662,7 @@
             } catch(e) {}
         }
 
-        // ----- РАБОТА С СОСТОЯНИЕМ -----
-        function loadState() {
-            try {
-                const raw = localStorage.getItem(STORAGE_KEY);
-                if (raw) {
-                    const data = JSON.parse(raw);
-                    if (!data.ready) data.ready = {};
-                    if (!data.choices) data.choices = {};
-                    return data;
-                }
-            } catch(e) {}
-            return { players: [], stage: 0, gameOver: false, stageLocked: false, choices: {}, ready: {}, results: [] };
-        }
-
-        function saveState() {
-            const data = {
-                players: gameState.players,
-                stage: currentStage,
-                gameOver: gameOver,
-                stageLocked: stageLocked,
-                choices: gameState.choices || {},
-                ready: playerReady || {},
-                results: roundResults
-            };
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        }
-
-        function clearState() {
-            localStorage.removeItem(STORAGE_KEY);
-            localStorage.removeItem(PLAYER_ID_KEY);
-            gameState = { players: [], stage: 0, gameOver: false, stageLocked: false, choices: {}, ready: {}, results: [] };
-            myPlayerId = null;
-            currentStage = 0;
-            gameOver = false;
-            waitingForChoice = false;
-            stageLocked = false;
-            playerReady = {};
-            roundResults = [];
-            if (videoTimer) {
-                clearTimeout(videoTimer);
-                videoTimer = null;
-            }
-        }
-
-        function syncState() {
-            const newState = loadState();
-            gameState.players = newState.players || [];
-            currentStage = newState.stage || 0;
-            gameOver = newState.gameOver || false;
-            stageLocked = newState.stageLocked || false;
-            gameState.choices = newState.choices || {};
-            playerReady = newState.ready || {};
-            roundResults = newState.results || [];
-
-            if (myPlayerId && !gameState.players.some(p => p.id === myPlayerId)) {
-                myPlayerId = null;
-                localStorage.removeItem(PLAYER_ID_KEY);
-                location.reload();
-            }
-            renderAll();
-            updateUIState();
-        }
-
-        setInterval(syncState, 1500);
-
-        // ----- ДАННЫЕ ЭТАПОВ С ВИДЕО-ЗАГЛУШКАМИ -----
+        // ===== ВИДЕО =====
         function getVideoPlaceholderText(stageIdx, choiceIdx) {
             const videoMap = {
                 '1-0': 'Таверна: пьяный разговор и тёмные слухи',
@@ -627,6 +685,72 @@
             return videoMap[key] || `🎬 Сцена ${stageIdx}.${choiceIdx}`;
         }
 
+        function showVideo(stageIdx, choiceIdx) {
+            if (videoTimer) {
+                clearTimeout(videoTimer);
+                videoTimer = null;
+            }
+            const placeholderText = getVideoPlaceholderText(stageIdx, choiceIdx);
+            videoPlaceholder.textContent = `🎬 ${placeholderText}`;
+            videoPlaceholder.style.display = 'block';
+            storyVideo.style.display = 'none';
+            hoodedFigure.style.display = 'none';
+            const delay = 5000 + Math.random() * 5000;
+            videoTimer = setTimeout(() => {
+                videoPlaceholder.style.display = 'none';
+                storyVideo.style.display = 'none';
+                hoodedFigure.style.display = 'flex';
+                videoTimer = null;
+            }, delay);
+        }
+
+        function showPrologueVideo() {
+            if (videoTimer) {
+                clearTimeout(videoTimer);
+                videoTimer = null;
+            }
+            videoPlaceholder.textContent = '🎬 Пролог: Тени над городком';
+            videoPlaceholder.style.display = 'block';
+            storyVideo.style.display = 'none';
+            hoodedFigure.style.display = 'none';
+            const delay = 6000 + Math.random() * 4000;
+            videoTimer = setTimeout(() => {
+                videoPlaceholder.style.display = 'none';
+                storyVideo.style.display = 'none';
+                hoodedFigure.style.display = 'flex';
+                videoTimer = null;
+            }, delay);
+        }
+
+        function showEpilogueVideo() {
+            if (videoTimer) {
+                clearTimeout(videoTimer);
+                videoTimer = null;
+            }
+            videoPlaceholder.textContent = '🎬 Эпилог: Судьба свершилась';
+            videoPlaceholder.style.display = 'block';
+            storyVideo.style.display = 'none';
+            hoodedFigure.style.display = 'none';
+            const delay = 6000 + Math.random() * 4000;
+            videoTimer = setTimeout(() => {
+                videoPlaceholder.style.display = 'none';
+                storyVideo.style.display = 'none';
+                hoodedFigure.style.display = 'flex';
+                videoTimer = null;
+            }, delay);
+        }
+
+        function resetVideo() {
+            if (videoTimer) {
+                clearTimeout(videoTimer);
+                videoTimer = null;
+            }
+            videoPlaceholder.style.display = 'block';
+            storyVideo.style.display = 'none';
+            hoodedFigure.style.display = 'none';
+        }
+
+        // ===== ДАННЫЕ ЭТАПОВ =====
         const stagesData = [
             null,
             {
@@ -676,7 +800,7 @@
             }
         ];
 
-        // ----- ОТРИСОВКА -----
+        // ===== ОТРИСОВКА =====
         function renderPlayers() {
             let html = '';
             gameState.players.forEach((p) => {
@@ -724,80 +848,7 @@
             else if (gameState.players.length) goldSpan.textContent = gameState.players[0].gold;
         }
 
-        // ----- ВИДЕО С ЗАДЕРЖКОЙ И ПЕРЕХОДОМ НА КАРТИНКУ -----
-        function showVideo(stageIdx, choiceIdx) {
-            if (videoTimer) {
-                clearTimeout(videoTimer);
-                videoTimer = null;
-            }
-
-            const placeholderText = getVideoPlaceholderText(stageIdx, choiceIdx);
-            
-            // Показываем видео-заглушку
-            videoPlaceholder.textContent = `🎬 ${placeholderText}`;
-            videoPlaceholder.style.display = 'block';
-            storyVideo.style.display = 'none';
-            hoodedFigure.style.display = 'none';
-
-            // Через 5-10 секунд показываем фигуру в капюшоне
-            const delay = 5000 + Math.random() * 5000; // 5-10 секунд
-            videoTimer = setTimeout(() => {
-                videoPlaceholder.style.display = 'none';
-                storyVideo.style.display = 'none';
-                hoodedFigure.style.display = 'flex';
-                videoTimer = null;
-            }, delay);
-        }
-
-        function showPrologueVideo() {
-            if (videoTimer) {
-                clearTimeout(videoTimer);
-                videoTimer = null;
-            }
-            videoPlaceholder.textContent = '🎬 Пролог: Тени над городком';
-            videoPlaceholder.style.display = 'block';
-            storyVideo.style.display = 'none';
-            hoodedFigure.style.display = 'none';
-
-            const delay = 6000 + Math.random() * 4000;
-            videoTimer = setTimeout(() => {
-                videoPlaceholder.style.display = 'none';
-                storyVideo.style.display = 'none';
-                hoodedFigure.style.display = 'flex';
-                videoTimer = null;
-            }, delay);
-        }
-
-        function showEpilogueVideo() {
-            if (videoTimer) {
-                clearTimeout(videoTimer);
-                videoTimer = null;
-            }
-            videoPlaceholder.textContent = '🎬 Эпилог: Судьба свершилась';
-            videoPlaceholder.style.display = 'block';
-            storyVideo.style.display = 'none';
-            hoodedFigure.style.display = 'none';
-
-            const delay = 6000 + Math.random() * 4000;
-            videoTimer = setTimeout(() => {
-                videoPlaceholder.style.display = 'none';
-                storyVideo.style.display = 'none';
-                hoodedFigure.style.display = 'flex';
-                videoTimer = null;
-            }, delay);
-        }
-
-        function resetVideo() {
-            if (videoTimer) {
-                clearTimeout(videoTimer);
-                videoTimer = null;
-            }
-            videoPlaceholder.style.display = 'block';
-            storyVideo.style.display = 'none';
-            hoodedFigure.style.display = 'none';
-        }
-
-        // ----- UI СОСТОЯНИЕ -----
+        // ===== UI СОСТОЯНИЕ =====
         function updateUIState() {
             const me = gameState.players.find(p => p.id === myPlayerId);
             if (!me) return;
@@ -830,7 +881,55 @@
             }
         }
 
-        // ----- ПРОЛОГ -----
+        // ===== ОБНОВЛЕНИЕ ЭТАПА =====
+        function updateStageUI() {
+            if (currentStage === 0) {
+                showPrologue();
+                return;
+            }
+            
+            if (gameOver) {
+                showEpilogue();
+                return;
+            }
+            
+            const stageData = stagesData[currentStage];
+            if (!stageData) return;
+            
+            stageTitle.innerHTML = `<span>${stageData.title}</span><small>этап ${currentStage}/${totalStages}</small>`;
+            storyText.textContent = stageData.desc;
+            
+            const hasChosen = gameState.choices && gameState.choices[myPlayerId] !== undefined;
+            const allChose = gameState.players.every(p => gameState.choices[p.id] !== undefined);
+            
+            if (!hasChosen && !allChose && waitingForChoice) {
+                choicesContainer.innerHTML = '';
+                stageData.choices.forEach((choice, idx) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'choice-btn';
+                    btn.textContent = choice.text;
+                    btn.dataset.idx = idx;
+                    btn.addEventListener('click', () => handleChoice(idx, currentStage));
+                    choicesContainer.appendChild(btn);
+                });
+                waitingText.textContent = `Ожидание выбора... (${Object.keys(gameState.choices).length}/${gameState.players.length})`;
+            } else if (allChose) {
+                waitingForChoice = false;
+                stageLocked = true;
+                waitingText.textContent = 'Все сделали выбор! Нажмите "Готов к этапу"';
+                readyBtn.style.display = 'inline-block';
+                readyBtn.textContent = '✅ Готов к следующему этапу';
+                readyBtn.disabled = false;
+                showRoundResults();
+            } else {
+                waitingText.textContent = `Ожидание выбора... (${Object.keys(gameState.choices).length}/${gameState.players.length})`;
+                readyBtn.style.display = 'none';
+            }
+            
+            renderAll();
+        }
+
+        // ===== ПРОЛОГ =====
         function showPrologue() {
             currentStage = 0;
             waitingForChoice = false;
@@ -851,16 +950,16 @@
                 playerReady = {};
                 currentStage = 1;
                 stageLocked = false;
+                waitingForChoice = true;
                 saveState();
-                syncState();
-                startStage(1);
+                updateStageUI();
             });
             waitingText.textContent = 'Нажмите "Начать странствие"';
             readyBtn.style.display = 'none';
             renderAll();
         }
 
-        // ----- ЗАПУСК ЭТАПА -----
+        // ===== ЗАПУСК ЭТАПА =====
         function startStage(stageIndex) {
             if (gameOver) return;
             if (stageIndex < 1 || stageIndex > totalStages) return;
@@ -873,35 +972,12 @@
             playerReady = {};
             waitingForChoice = true;
             resetVideo();
-
-            stageTitle.innerHTML = `<span>${stageData.title}</span><small>этап ${stageIndex}/${totalStages}</small>`;
-
-            videoPlaceholder.textContent = `🎬 Этап ${stageIndex}: ${stageData.title}`;
-            videoPlaceholder.style.display = 'block';
-            storyVideo.style.display = 'none';
-            hoodedFigure.style.display = 'none';
-
-            storyText.textContent = stageData.desc;
-            choicesContainer.innerHTML = '';
-            outcomeDisplay.style.display = 'none';
-
-            stageData.choices.forEach((choice, idx) => {
-                const btn = document.createElement('button');
-                btn.className = 'choice-btn';
-                btn.textContent = choice.text;
-                btn.dataset.idx = idx;
-                btn.addEventListener('click', () => handleChoice(idx, stageIndex));
-                choicesContainer.appendChild(btn);
-            });
-
-            waitingText.textContent = `Ожидание выбора... (${Object.keys(gameState.choices).length}/${gameState.players.length})`;
-            readyBtn.style.display = 'none';
-            renderAll();
-            playSound('stage');
             saveState();
+            updateStageUI();
+            playSound('stage');
         }
 
-        // ----- ОБРАБОТКА ВЫБОРА -----
+        // ===== ОБРАБОТКА ВЫБОРА =====
         function handleChoice(choiceIndex, stageIndex) {
             if (gameOver || !waitingForChoice || stageLocked) return;
             if (!myPlayerId) return;
@@ -909,35 +985,14 @@
 
             gameState.choices[myPlayerId] = choiceIndex;
             playSound('click');
-
-            // Показываем видео для выбора
             showVideo(stageIndex, choiceIndex);
-
-            const btns = choicesContainer.querySelectorAll('.choice-btn');
-            btns.forEach((btn, idx) => {
-                if (idx === choiceIndex) btn.classList.add('chosen');
-            });
-
-            renderAll();
             saveState();
-
-            const allChose = gameState.players.every(p => gameState.choices[p.id] !== undefined);
-            if (allChose) {
-                waitingForChoice = false;
-                stageLocked = true;
-                applyRoundResults(stageIndex);
-                waitingText.textContent = 'Все сделали выбор! Нажмите "Готов к этапу"';
-                readyBtn.style.display = 'inline-block';
-                readyBtn.textContent = '✅ Готов к следующему этапу';
-                readyBtn.disabled = false;
-                renderAll();
-                saveState();
-            } else {
-                waitingText.textContent = `Ожидание выбора... (${Object.keys(gameState.choices).length}/${gameState.players.length})`;
-            }
+            
+            renderAll();
+            updateStageUI();
         }
 
-        // ----- ГОТОВНОСТЬ К СЛЕДУЮЩЕМУ ЭТАПУ -----
+        // ===== ГОТОВНОСТЬ =====
         function setReady() {
             if (!myPlayerId) return;
             if (!stageLocked) return;
@@ -959,13 +1014,14 @@
                 } else {
                     currentStage = currentStage + 1;
                     playerReady = {};
+                    gameState.choices = {};
                     saveState();
                     startStage(currentStage);
                 }
             }
         }
 
-        // ----- ПРИМЕНЕНИЕ РЕЗУЛЬТАТОВ -----
+        // ===== ПРИМЕНЕНИЕ РЕЗУЛЬТАТОВ =====
         function applyRoundResults(stageIndex) {
             const stageData = stagesData[stageIndex];
             if (!stageData) return;
@@ -992,7 +1048,7 @@
             renderAll();
         }
 
-        // ----- ЭПИЛОГ -----
+        // ===== ЭПИЛОГ =====
         function showEpilogue() {
             stageTitle.innerHTML = `<span>Эпилог</span><small>итог</small>`;
             showEpilogueVideo();
@@ -1012,15 +1068,27 @@
             renderAll();
         }
 
-        // ----- СБРОС (ПОЛНАЯ ОЧИСТКА) -----
+        // ===== СБРОС =====
         function resetGame() {
-            // Полная очистка всех данных
-            clearState();
-            // Перезагружаем страницу для полного сброса
+            if (channel) {
+                channel.publish('reset-game', {});
+            }
+            // Очищаем локальное состояние
+            gameState.players = [];
+            gameState.choices = {};
+            playerReady = {};
+            roundResults = [];
+            currentStage = 0;
+            gameOver = false;
+            stageLocked = false;
+            waitingForChoice = false;
+            myPlayerId = null;
+            localStorage.removeItem('darkfantasy_player_id_v3');
+            saveState();
             location.reload();
         }
 
-        // ----- ЛОББИ -----
+        // ===== ЛОББИ =====
         function joinGame() {
             const name = nickInput.value.trim();
             if (!name) return;
@@ -1031,12 +1099,11 @@
             }
             const id = 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
             myPlayerId = id;
-            localStorage.setItem(PLAYER_ID_KEY, id);
+            localStorage.setItem('darkfantasy_player_id_v3', id);
             gameState.players.push({ id, name, gold: 3 });
             saveState();
             nickInput.value = '';
             renderAll();
-            syncState();
         }
 
         function startGameByAnyone() {
@@ -1050,35 +1117,48 @@
             currentStage = 0;
             gameOver = false;
             saveState();
-            syncState();
             showPrologue();
             playSound('stage');
         }
 
-        // ----- ИНИЦИАЛИЗАЦИЯ -----
+        // ===== ИНИЦИАЛИЗАЦИЯ =====
         function init() {
-            if (myPlayerId) {
-                const state = loadState();
-                if (state.players.some(p => p.id === myPlayerId)) {
-                    gameState = state;
-                    if (gameState.stage > 0 || gameState.gameOver) {
-                        nicknamePhase.classList.add('hidden');
-                        gamePhase.classList.remove('hidden');
-                        syncState();
-                        return;
+            connectAbly();
+            
+            // Загружаем локальный бэкап
+            try {
+                const backup = localStorage.getItem('darkfantasy_game_state_backup');
+                if (backup) {
+                    const data = JSON.parse(backup);
+                    if (data.players && data.players.length > 0) {
+                        gameState.players = data.players;
+                        currentStage = data.stage || 0;
+                        gameOver = data.gameOver || false;
+                        stageLocked = data.stageLocked || false;
+                        gameState.choices = data.choices || {};
+                        playerReady = data.ready || {};
+                        roundResults = data.results || [];
                     }
-                } else {
-                    myPlayerId = null;
-                    localStorage.removeItem(PLAYER_ID_KEY);
+                }
+            } catch(e) {}
+            
+            // Проверяем, есть ли игрок
+            if (myPlayerId && gameState.players.some(p => p.id === myPlayerId)) {
+                if (gameState.stage > 0 || gameState.gameOver) {
+                    nicknamePhase.classList.add('hidden');
+                    gamePhase.classList.remove('hidden');
+                    renderAll();
+                    updateStageUI();
+                    return;
                 }
             }
+            
             nicknamePhase.classList.remove('hidden');
             gamePhase.classList.add('hidden');
             renderAll();
-            syncState();
         }
 
-        // ----- СОБЫТИЯ -----
+        // ===== СОБЫТИЯ =====
         joinBtn.addEventListener('click', joinGame);
         nickInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinGame(); });
         startGameBtn.addEventListener('click', startGameByAnyone);
@@ -1086,8 +1166,8 @@
         resetBtn.addEventListener('click', resetGame);
         volumeSlider.addEventListener('input', () => {});
 
+        // Запускаем
         init();
-        setTimeout(syncState, 500);
     })();
 </script>
 </body>
